@@ -1,0 +1,52 @@
+service: omni-eventing-pub-sub-revamped
+
+provider:
+  name: aws
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  versionFunctions: false
+  runtime: nodejs20.x
+  role: ${ssm:/omni-dw/${self:provider.stage}/lambda/role}
+  vpc:
+    securityGroupIds:
+      - ${ssm:/omni-dw/${self:provider.stage}/lambda/sgId}
+    subnetIds:
+      - ${ssm:/omni-dw/${self:provider.stage}/lambda/subnetA}
+  iamRoleStatements:
+    - Effect: 'Allow'
+      Action:
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
+        - ec2:CreateNetworkInterface
+        - ec2:DescribeNetworkInterfaces
+        - ec2:DetachNetworkInterface
+        - ec2:DeleteNetworkInterface
+        - ec2:AssignPrivateIpAddresses
+        - ec2:UnassignPrivateIpAddresses
+      Resource: '*'
+  environment:
+    REGION: ${self:provider.region}
+    STAGE: ${self:provider.stage}
+    ERROR_SNS_TOPIC_ARN: ${ssm:/omni-reports/${self:provider.stage}/error-notification/sns/arn}
+
+  deploymentBucket:
+    name: ${ssm:/omni-dw/${self:provider.stage}/sls/deployment/bucket}
+    serverSideEncryption: AES256
+
+package:
+  individually: true
+
+functions:
+  dell-narvar-shipment-file-stream-processor: ${file(config/functions/dell-narvar-shipment-file-stream-processor.yml):function}
+  dell-narvar-pod-doc-sender: ${file(config/functions/dell-narvar-pod-doc-sender.yml):function}
+  dell-narvar-pod-table-status-checker: ${file(config/functions/dell-narvar-table-status-checker.yml):function}
+
+layers:
+  NodeModules:
+    path: lambdaLayer/lib
+    name: ${self:service}-layer-${self:provider.stage}
+    description: Lambda layer for all node modules - ${self:provider.stage}
+    compatibleRuntimes:
+      - nodejs20.x
+    retain: false

@@ -1,0 +1,22 @@
+---
+function:
+  name: dell-narvar-pod-doc-sender-${self:provider.stage}
+  handler: src/dell-narvar-pod-doc/pod-doc-sender.handler
+  memorySize: 2048
+  timeout: 900
+  layers:
+    - !Ref NodeModulesLambdaLayer
+  package:
+    patterns:
+      - '!**/*'
+      - src/dell-narvar-pod-doc/pod-doc-sender.js
+      - src/dell-narvar-pod-doc/helper.js
+
+  events:
+    - stream:
+        arn: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/status-table/stream-arn}
+        batchSize: 5
+        maximumRetryAttempts: 3
+        bisectBatchOnFunctionError: true
+        filterPatterns:
+          - { dynamodb: { NewImage: { Status: { S: ['READY'] } } } }

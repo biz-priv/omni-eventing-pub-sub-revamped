@@ -1,0 +1,16 @@
+---
+function:
+  name: dell-narvar-pod-doc-table-status-checker-${self:provider.stage}
+  handler: src/dell-narvar-pod-doc/table-status-checker.handler
+  memorySize: 2048
+  timeout: 900
+  layers:
+    - !Ref NodeModulesLambdaLayer
+  package:
+    patterns:
+      - '!**/*'
+      - src/dell-narvar-pod-doc/table-status-checker.js
+      - src/dell-narvar-pod-doc/helper.js
+
+  events:
+    - schedule: cron(*/1 * * * ? *) #cron for every 1 min
