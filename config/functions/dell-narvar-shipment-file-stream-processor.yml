@@ -20,3 +20,10 @@ function:
         bisectBatchOnFunctionError: true
         filterPatterns:
           - { dynamodb: { NewImage: { CustomerAccess: { S: ['Y'] } } } }
+
+  environment:
+    SHIPMENT_HEADER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.tableName}
+    SHIPMENT_MILESTONE_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-milestone/ddb.tableName}
+    CUSTOMER_ENTITLEMENT_TABLE: ${ssm:/omni-dw/${self:provider.stage}/customerEntitlement/table}
+    ENTITLEMENT_HOUSEBILL_INDEX: ${ssm:/omni-dw/${self:provider.stage}/entitlement/HouseBillNumber/index}
+    DOC_STATUS_TABLE: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/status-table/name}
