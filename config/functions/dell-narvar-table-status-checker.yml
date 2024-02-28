@@ -20,3 +20,4 @@ function:
     SHIPPER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipper/ddb.tableName}
     DOC_STATUS_TABLE: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/status-table/name}
     DOC_STATUS_INDEX: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/status-table/status-index}
+    SHIPMENT_MILESTONE_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-milestone/ddb.tableName}

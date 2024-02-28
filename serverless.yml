@@ -39,8 +39,8 @@ package:
 
 functions:
   dell-narvar-shipment-file-stream-processor: ${file(config/functions/dell-narvar-shipment-file-stream-processor.yml):function}
-  dell-narvar-pod-doc-sender: ${file(config/functions/dell-narvar-pod-doc-sender.yml):function}
   dell-narvar-pod-table-status-checker: ${file(config/functions/dell-narvar-table-status-checker.yml):function}
+  dell-narvar-pod-doc-sender: ${file(config/functions/dell-narvar-pod-doc-sender.yml):function}
 
 layers:
   NodeModules:
