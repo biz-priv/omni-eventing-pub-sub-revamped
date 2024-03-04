@@ -31,7 +31,8 @@
     "date-fns": "^3.3.1",
     "joi": "^17.12.2",
     "lodash": "^4.17.21",
-    "moment-timezone": "^0.5.45"
+    "moment-timezone": "^0.5.45",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@commitlint/cli": "^18.4.4",

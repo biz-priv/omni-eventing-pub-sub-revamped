@@ -44,7 +44,7 @@ const tableParams = {
     KeyConditionExpression: 'FK_OrderNo = :orderNo and FK_OrderStatusId = :statusId',
     ExpressionAttributeValues: {
       ':orderNo': orderNo,
-      ':statusId': 'POD',
+      ':statusId': 'DEL',
     },
   }),
   SHIPPER_TABLE: ({ orderNo }) => ({

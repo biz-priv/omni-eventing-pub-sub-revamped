@@ -2,6 +2,7 @@
 const { get } = require('lodash');
 const { publishToSNS, tableStatuses, STATUSES, getCstTimestamp } = require('./helper');
 const AWS = require('aws-sdk');
+const { getShipmentHeaderData, getStatusTableData } = require('./dynamo');
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 
@@ -14,6 +15,15 @@ module.exports.handler = async (event, context) => {
       event.Records.map(async (record) => {
         const newImage = get(record, 'dynamodb.NewImage');
         const orderNo = get(newImage, 'FK_OrderNo.S', '');
+        const existingItem = await getStatusTableData({ orderNo });
+        console.info(
+          '🙂 -> file: shipment-file-stream-processor.js:19 -> event.Records.map -> existingItem:',
+          existingItem
+        );
+        if (existingItem.filter((item) => get(item, 'Status') === STATUSES.SENT).length > 0) {
+          console.info(`Order no: ${orderNo} had already been processed.`);
+          return `Order no: ${orderNo} had already been processed.`;
+        }
         const shipmentHeaderDataRes = await getShipmentHeaderData({ orderNo });
         console.info(
           '🙂 -> file: shipment-file-stream-processor.js:17 -> event.Records.map -> shipmentHeaderDataRes:',
@@ -65,23 +75,6 @@ module.exports.handler = async (event, context) => {
     await publishToSNS(errorMessage, context.functionName);
   }
 };
-
-async function getShipmentHeaderData({ orderNo }) {
-  const params = {
-    TableName: process.env.SHIPMENT_HEADER_TABLE,
-    KeyConditionExpression: 'PK_OrderNo = :orderNo',
-    ExpressionAttributeValues: {
-      ':orderNo': orderNo,
-    },
-  };
-  try {
-    const result = await dynamoDB.query(params).promise();
-    return get(result, 'Items.[0]', {});
-  } catch (error) {
-    console.error('Error querying header details:', error.message);
-    return false;
-  }
-}
 
 async function getCustomer({ houseBill }) {
   const params = {
