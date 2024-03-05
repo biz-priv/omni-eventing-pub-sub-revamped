@@ -25,7 +25,10 @@ module.exports.handler = async (event, context) => {
           console.info(`Order no: ${orderNo} had already been processed.`);
           return `Order no: ${orderNo} had already been processed.`;
         }
-        return await updateStatusTable({ orderNo, status: STATUSES.PENDING });
+        if (existingItem.filter((item) => get(item, 'Status') !== STATUSES.SENT).length > 0) {
+          return await updateStatusTable({ orderNo, status: STATUSES.PENDING });
+        }
+        return true;
       })
     );
   } catch (error) {

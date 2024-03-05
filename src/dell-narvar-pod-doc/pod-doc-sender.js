@@ -20,36 +20,56 @@ module.exports.handler = async (event, context) => {
   try {
     await Promise.all(
       event.Records.map(async (record) => {
-        console.info('🙂 -> file: pod-doc-sender.js:14 -> event.Records.map -> record:', record);
-        const newImage = get(record, 'dynamodb.NewImage');
-        console.info(
-          '🙂 -> file: pod-doc-sender.js:16 -> event.Records.map -> newImage:',
-          newImage
-        );
-        const orderNo = get(newImage, 'FK_OrderId.S', '');
-        console.info('🙂 -> file: pod-doc-sender.js:17 -> event.Records.map -> orderNo:', orderNo);
-        const customerIDs = get(newImage, 'CustomerIDs.S', '');
-        console.info(
-          '🙂 -> file: pod-doc-sender.js:18 -> event.Records.map -> customerIDs:',
-          customerIDs
-        );
-        const payload = await createPayload({ orderNo });
-        console.info('🙂 -> file: pod-doc-sender.js:27 -> event.Records.map -> payload:', payload);
-        const { value, error } = schema.validate(payload);
-        console.info(
-          '🙂 -> file: pod-doc-sender.js:31 -> event.Records.map ->  value, error:',
-          value,
-          error
-        );
-        if (error) {
-          throw new Error(`Payload validation failed: ${get(error, 'message')}`);
+        const orderNo = get(record, 'dynamodb.NewImage.FK_OrderId.S', '');
+        try {
+          console.info('🙂 -> file: pod-doc-sender.js:14 -> event.Records.map -> record:', record);
+          const newImage = get(record, 'dynamodb.NewImage');
+          console.info(
+            '🙂 -> file: pod-doc-sender.js:16 -> event.Records.map -> newImage:',
+            newImage
+          );
+          console.info(
+            '🙂 -> file: pod-doc-sender.js:17 -> event.Records.map -> orderNo:',
+            orderNo
+          );
+          const customerIDs = get(newImage, 'CustomerIDs.S', '');
+          console.info(
+            '🙂 -> file: pod-doc-sender.js:18 -> event.Records.map -> customerIDs:',
+            customerIDs
+          );
+          const docType = get(newImage, 'DocType.S', '');
+          console.info(
+            '🙂 -> file: pod-doc-sender.js:38 -> event.Records.map -> DocType:',
+            docType
+          );
+          const payload = await createPayload({ orderNo, docType });
+          console.info(
+            '🙂 -> file: pod-doc-sender.js:27 -> event.Records.map -> payload:',
+            payload
+          );
+          const { value, error } = schema.validate(payload);
+          console.info(
+            '🙂 -> file: pod-doc-sender.js:31 -> event.Records.map ->  value, error:',
+            value,
+            error
+          );
+          if (error) {
+            throw new Error(`Payload validation failed: ${get(error, 'message')}`);
+          }
+          await Promise.all(
+            customerIDs.split().map(async (customerId) => {
+              await processAndDeliverMessage({ customerId, payload });
+            })
+          );
+          await updateStatusTable({
+            orderNo,
+            status: STATUSES.SENT,
+            message: 'Payload sent successfully.',
+            payload,
+          });
+        } catch (error) {
+          await updateStatusTable({ orderNo, status: STATUSES.FAILED, message: error.message });
         }
-        await Promise.all(
-          customerIDs.split().map(async (customerId) => {
-            await processAndDeliverMessage({ customerId, payload });
-          })
-        );
-        await updateStatusTable({ orderNo, status: STATUSES.SENT });
       })
     );
   } catch (error) {
@@ -136,7 +156,7 @@ const schema = Joi.object({
   vpod: Joi.string().required(),
 });
 
-async function createPayload({ orderNo }) {
+async function createPayload({ orderNo, docType = 'HCPOD' }) {
   const shipmentHeaderDataRes = await getShipmentHeaderData({ orderNo });
   console.info(
     '🙂 -> file: shipment-file-stream-processor.js:17 -> event.Records.map -> shipmentHeaderDataRes:',
@@ -173,7 +193,7 @@ async function createPayload({ orderNo }) {
     lastUpdateDate: eventDateTime,
     estimatedDeliveryDate: etaDateTime === '1900-01-01 00:00:00.000' ? 'NA' : etaDateTime,
     identifier: 'NA',
-    statusDescription: 'POD Document',
+    statusDescription: 'DELIVERED',
     retailerMoniker: 'dell',
     originCity: get(shipperDetails, 'ShipCity', ''),
     originState: get(shipperDetails, 'FK_ShipState', ''),
@@ -187,25 +207,28 @@ async function createPayload({ orderNo }) {
     eventState: get(consigneeDetails, 'FK_ConState', 'Unknown'),
     eventZip: get(consigneeDetails, 'ConZip', 'Unknown'),
     eventCountryCode: get(consigneeDetails, 'FK_ConCountry', 'Unknown'),
-    vpod: await getPresignedUrl({ housebill: houseBill }),
+    vpod: await getPresignedUrl({ housebill: houseBill, docType }),
   };
   return payload;
 }
 
-async function getDocFromWebsli({ housebill }) {
+async function getDocFromWebsli({ housebill, docType }) {
   try {
-    const url = `${process.env.GET_DOCUMENT_API}/${process.env.WEBSLI_KEY}/housebill=${housebill}/doctype=HCPOD`;
+    const url = `${process.env.GET_DOCUMENT_API}/${process.env.WEBSLI_KEY}/housebill=${housebill}/doctype=${docType}`;
     const queryType = await axios.get(url);
+    console.info('🙂 -> file: pod-doc-sender.js:204 -> getDocFromWebsli -> url:', url);
     const { filename, b64str } = get(queryType, 'data.wtDocs.wtDoc[0]', {});
     return { filename, b64str };
   } catch (error) {
-    console.error('error while calling websli endpoint: ', get(error, 'response.data'));
+    console.info('🙂 -> file: pod-doc-sender.js:207 -> getDocFromWebsli -> error:', error);
+    const message = get(error, 'response.data', '');
+    console.error('error while calling websli endpoint: ', message === '' ?? error.message);
     throw error;
   }
 }
 
-async function getPresignedUrl({ housebill }) {
-  const { filename, b64str } = await getDocFromWebsli({ housebill });
+async function getPresignedUrl({ housebill, docType }) {
+  const { filename, b64str } = await getDocFromWebsli({ housebill, docType });
   const { Key } = await createS3File({ filename, body: Buffer.from(b64str, 'base64') });
   return await generatePreSignedURL({ filename: Key });
 }
@@ -269,20 +292,25 @@ async function getTopicArn(snsEventType) {
   }
 }
 
-async function updateStatusTable({ orderNo, status }) {
+async function updateStatusTable({ orderNo, status, message, payload }) {
   try {
     const updateParam = {
       TableName: process.env.DOC_STATUS_TABLE,
       Key: { FK_OrderId: orderNo },
       UpdateExpression:
-        'set #Status = :status, LastUpdateBy = :lastUpdateBy, LastUpdatedAt = :lastUpdatedAt',
+        'set #Status = :status, LastUpdateBy = :lastUpdateBy, LastUpdatedAt = :lastUpdatedAt, Message = :message',
       ExpressionAttributeNames: { '#Status': 'Status' },
       ExpressionAttributeValues: {
         ':status': status,
         ':lastUpdateBy': functionName,
         ':lastUpdatedAt': moment.tz('America/Chicago').format(),
+        ':message': message,
       },
     };
+    if (payload) {
+      updateParam.UpdateExpression += ', Payload = :payload';
+      updateParam.ExpressionAttributeValues[':payload'] = payload;
+    }
     console.info(
       '🙂 -> file: table-status-checker.js:79 -> updateStatusTable -> updateParam:',
       updateParam
