@@ -238,7 +238,6 @@ async function createS3File({ filename, body }) {
     Key: filename,
     Body: body,
     Bucket: process.env.DOCUMENTS_BUCKET,
-    ContentType: 'application/pdf',
   };
   return await S3.upload(params).promise();
 }
