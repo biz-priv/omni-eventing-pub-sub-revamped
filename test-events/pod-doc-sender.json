@@ -1,0 +1,59 @@
+{
+  "Records": [
+    {
+      "eventID": "e2a89d15c5ecbcb0da81d1bdb5939cbb",
+      "eventName": "MODIFY",
+      "eventVersion": "1.1",
+      "eventSource": "aws:dynamodb",
+      "awsRegion": "us-east-1",
+      "dynamodb": {
+        "ApproximateCreationDateTime": 1709128754,
+        "Keys": { "FK_OrderId": { "S": "4964668" } },
+        "NewImage": {
+          "LastUpdatedBy": { "S": "dell-narvar-pod-doc-shipment-file-stream-processor-dev" },
+          "Status": { "S": "READY" },
+          "HouseBill": { "S": "6988033" },
+          "LastUpdateBy": { "S": "dell-narvar-pod-doc-table-status-checker-dev" },
+          "CustomerIDs": { "S": "10423322,10408459,10076144" },
+          "LastUpdatedAt": { "S": "2024-02-28T07:59:14-06:00" },
+          "RetryCount": { "N": "3" },
+          "CreatedAt": { "S": "2024:02:27 08:53:50 -06:00" },
+          "TableStatuses": {
+            "M": {
+              "CONSIGNEE_TABLE": { "S": "READY" },
+              "SHIPMENT_HEADER_TABLE": { "S": "READY" },
+              "SHIPPER_TABLE": { "S": "READY" },
+              "SHIPMENT_MILESTONE_TABLE": { "S": "READY" }
+            }
+          },
+          "FK_OrderId": { "S": "4964668" },
+          "Payload": { "S": "" }
+        },
+        "OldImage": {
+          "LastUpdatedBy": { "S": "dell-narvar-pod-doc-shipment-file-stream-processor-dev" },
+          "Status": { "S": "PENDING" },
+          "HouseBill": { "S": "6988033" },
+          "LastUpdateBy": { "S": "dell-narvar-pod-doc-table-status-checker-dev" },
+          "CustomerIDs": { "S": "10423322,10408459,10076144" },
+          "LastUpdatedAt": { "S": "2024-02-28T07:02:33-06:00" },
+          "RetryCount": { "N": "2" },
+          "CreatedAt": { "S": "2024:02:27 08:53:50 -06:00" },
+          "TableStatuses": {
+            "M": {
+              "CONSIGNEE_TABLE": { "S": "READY" },
+              "SHIPMENT_HEADER_TABLE": { "S": "READY" },
+              "SHIPPER_TABLE": { "S": "READY" },
+              "SHIPMENT_MILESTONE_TABLE": { "S": "READY" }
+            }
+          },
+          "FK_OrderId": { "S": "4964668" },
+          "Payload": { "S": "" }
+        },
+        "SequenceNumber": "9577500000000086357147526",
+        "SizeBytes": 837,
+        "StreamViewType": "NEW_AND_OLD_IMAGES"
+      },
+      "eventSourceARN": "arn:aws:dynamodb:us-east-1:332281781429:table/dell-narvar-pod-doc-status-dev/stream/2024-02-26T12:28:06.002"
+    }
+  ]
+}

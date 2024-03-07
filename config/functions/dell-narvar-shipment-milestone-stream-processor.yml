@@ -1,0 +1,26 @@
+---
+function:
+  name: dell-narvar-pod-doc-shipment-milestone-stream-processor-${self:provider.stage}
+  handler: src/dell-narvar-pod-doc/shipment-milestone-stream-processor.handler
+  memorySize: 2048
+  timeout: 900
+  layers:
+    - !Ref NodeModulesLambdaLayer
+  package:
+    patterns:
+      - '!**/*'
+      - src/dell-narvar-pod-doc/shipment-milestone-stream-processor.js
+      - src/dell-narvar-pod-doc/helper.js
+      - src/dell-narvar-pod-doc/dynamo.js
+
+  events:
+    - stream:
+        arn: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-milestone/ddb.streamArn}
+        batchSize: 5
+        maximumRetryAttempts: 3
+        bisectBatchOnFunctionError: true
+        filterPatterns:
+          - { dynamodb: { NewImage: { FK_OrderStatusId: { S: ['DEL'] } } } }
+
+  environment:
+    DOC_STATUS_TABLE: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/status-table/name}

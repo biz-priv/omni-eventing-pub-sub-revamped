@@ -1,0 +1,24 @@
+---
+function:
+  name: dell-narvar-pod-doc-table-status-checker-${self:provider.stage}
+  handler: src/dell-narvar-pod-doc/table-status-checker.handler
+  memorySize: 2048
+  timeout: 900
+  layers:
+    - !Ref NodeModulesLambdaLayer
+  package:
+    patterns:
+      - '!**/*'
+      - src/dell-narvar-pod-doc/table-status-checker.js
+      - src/dell-narvar-pod-doc/helper.js
+      - src/dell-narvar-pod-doc/dynamo.js
+
+  events:
+    - schedule: cron(*/1 * * * ? *) #cron for every 1 min
+
+  environment:
+    CONSIGNEE_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consignee/ddb.tableName}
+    SHIPPER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipper/ddb.tableName}
+    DOC_STATUS_TABLE: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/status-table/name}
+    DOC_STATUS_INDEX: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/status-table/status-index}
+    SHIPMENT_MILESTONE_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-milestone/ddb.tableName}

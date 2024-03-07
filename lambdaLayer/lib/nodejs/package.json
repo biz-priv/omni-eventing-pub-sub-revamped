@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "test": ""
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1566.0",
+    "axios": "^1.6.7",
+    "joi": "^17.12.2",
+    "lodash": "^4.17.21",
+    "moment-timezone": "^0.5.45",
+    "uuid": "^9.0.1"
+  }
+}

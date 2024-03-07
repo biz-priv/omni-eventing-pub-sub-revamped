@@ -1,0 +1,35 @@
+---
+function:
+  name: dell-narvar-pod-doc-sender-${self:provider.stage}
+  handler: src/dell-narvar-pod-doc/pod-doc-sender.handler
+  memorySize: 2048
+  timeout: 900
+  layers:
+    - !Ref NodeModulesLambdaLayer
+  package:
+    patterns:
+      - '!**/*'
+      - src/dell-narvar-pod-doc/pod-doc-sender.js
+      - src/dell-narvar-pod-doc/helper.js
+      - src/dell-narvar-pod-doc/dynamo.js
+
+  events:
+    - stream:
+        arn: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/status-table/stream-arn}
+        batchSize: 5
+        maximumRetryAttempts: 3
+        bisectBatchOnFunctionError: true
+        filterPatterns:
+          - { dynamodb: { NewImage: { Status: { S: ['READY'] } } } }
+
+  environment:
+    WEBSLI_KEY: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/websli-key}
+    SHIPMENT_HEADER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.tableName}
+    SHIPMENT_MILESTONE_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-milestone/ddb.tableName}
+    CONSIGNEE_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consignee/ddb.tableName}
+    SHIPPER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipper/ddb.tableName}
+    DOC_STATUS_TABLE: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/status-table/name}
+    DOC_STATUS_INDEX: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/status-table/status-index}
+    GET_DOCUMENT_API: ${ssm:/omni-dw/${self:provider.stage}/websli/api/url}
+    DOCUMENTS_BUCKET: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/bucket-name}
+    EVENTING_TOPICS_TABLE: ${ssm:/omni/${self:provider.stage}/eventing/topics/table/name}
