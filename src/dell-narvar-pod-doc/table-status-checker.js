@@ -113,6 +113,8 @@ module.exports.handler = async (event, context) => {
             status: STATUSES.FAILED,
             message: error.message,
           });
+          const errorMessage = `An error occurred in function ${context.functionName}. Error details: ${error}.`;
+          await publishToSNS(errorMessage, context.functionName);
         }
       })
     );
