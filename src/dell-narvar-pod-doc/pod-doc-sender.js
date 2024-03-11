@@ -69,7 +69,8 @@ module.exports.handler = async (event, context) => {
           });
         } catch (error) {
           await updateStatusTable({ orderNo, status: STATUSES.FAILED, message: error.message });
-          await publishToSNS(error.message, functionName);
+          const errorMessage = `${error.message}, Order no: ${orderNo}`;
+          await publishToSNS(errorMessage, functionName);
         }
       })
     );

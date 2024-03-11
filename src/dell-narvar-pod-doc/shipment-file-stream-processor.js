@@ -21,55 +21,62 @@ module.exports.handler = async (event, context) => {
         const newImage = get(record, 'dynamodb.NewImage');
         const orderNo = get(newImage, 'FK_OrderNo.S', '');
         const docType = get(newImage, 'FK_DocType.S', '');
-        const existingItem = await getStatusTableData({ orderNo });
-        console.info(
-          '🙂 -> file: shipment-file-stream-processor.js:19 -> event.Records.map -> existingItem:',
-          existingItem
-        );
-        if (existingItem.filter((item) => get(item, 'Status') === STATUSES.SENT).length > 0) {
-          console.info(`Order no: ${orderNo} had already been processed.`);
-          return `Order no: ${orderNo} had already been processed.`;
-        }
-        const shipmentHeaderDataRes = await getShipmentHeaderData({ orderNo });
-        console.info(
-          '🙂 -> file: shipment-file-stream-processor.js:17 -> event.Records.map -> shipmentHeaderDataRes:',
-          shipmentHeaderDataRes
-        );
-        const houseBill = get(shipmentHeaderDataRes, 'Housebill', null);
-        if (!houseBill) {
+        try {
+          const existingItem = await getStatusTableData({ orderNo });
           console.info(
-            `Housebill number not present for order id in shipment header table: ${orderNo}`
+            '🙂 -> file: shipment-file-stream-processor.js:19 -> event.Records.map -> existingItem:',
+            existingItem
+          );
+          if (existingItem.filter((item) => get(item, 'Status') === STATUSES.SENT).length > 0) {
+            console.info(`Order no: ${orderNo} had already been processed.`);
+            return `Order no: ${orderNo} had already been processed.`;
+          }
+          const shipmentHeaderDataRes = await getShipmentHeaderData({ orderNo });
+          console.info(
+            '🙂 -> file: shipment-file-stream-processor.js:17 -> event.Records.map -> shipmentHeaderDataRes:',
+            shipmentHeaderDataRes
+          );
+          const houseBill = get(shipmentHeaderDataRes, 'Housebill', null);
+          if (!houseBill) {
+            console.info(
+              `Housebill number not present for order id in shipment header table: ${orderNo}`
+            );
+            return await insertIntoDocStatusTable({
+              orderNo,
+              status: STATUSES.SKIPPED,
+              docType,
+              message: `Housebill number not present for order id in shipment header table: ${orderNo}`,
+            });
+          }
+          const customerRes = await getCustomer({ houseBill });
+          console.info(
+            '🙂 -> file: shipment-file-stream-processor.js:23 -> event.Records.map -> customerRes:',
+            customerRes
+          );
+          if (customerRes.length === 0) {
+            console.info(
+              `Customer not present for housebill number in shipment entitlement table: ${houseBill} or the customer is not Dell`
+            );
+            return `Customer not present for housebill number in shipment entitlement table: ${houseBill} or the customer is not Dell`;
+          }
+          const customerIDs = customerRes.map((customer) => get(customer, 'CustomerID')).join();
+          console.info(
+            '🙂 -> file: shipment-file-stream-processor.js:25 -> event.Records.map -> customerIDs:',
+            customerIDs
           );
           return await insertIntoDocStatusTable({
+            customerIDs,
+            houseBill,
             orderNo,
-            status: STATUSES.SKIPPED,
             docType,
-            message: `Housebill number not present for order id in shipment header table: ${orderNo}`,
+            status: STATUSES.PENDING,
           });
+        } catch (error) {
+          const errorMessage = `Error details: ${error}. Order id: ${orderNo}`;
+          console.error(errorMessage);
+          await publishToSNS(errorMessage, context.functionName);
+          return false;
         }
-        const customerRes = await getCustomer({ houseBill });
-        console.info(
-          '🙂 -> file: shipment-file-stream-processor.js:23 -> event.Records.map -> customerRes:',
-          customerRes
-        );
-        if (customerRes.length === 0) {
-          console.info(
-            `Customer not present for housebill number in shipment entitlement table: ${houseBill} or the customer is not Dell`
-          );
-          return `Customer not present for housebill number in shipment entitlement table: ${houseBill} or the customer is not Dell`;
-        }
-        const customerIDs = customerRes.map((customer) => get(customer, 'CustomerID')).join();
-        console.info(
-          '🙂 -> file: shipment-file-stream-processor.js:25 -> event.Records.map -> customerIDs:',
-          customerIDs
-        );
-        return await insertIntoDocStatusTable({
-          customerIDs,
-          houseBill,
-          orderNo,
-          docType,
-          status: STATUSES.PENDING,
-        });
       })
     );
   } catch (error) {
@@ -104,7 +111,7 @@ async function getCustomer({ houseBill }) {
     return get(data, 'Items', []);
   } catch (error) {
     console.error('Validation error:', error);
-    return false;
+    return [];
   }
 }
 

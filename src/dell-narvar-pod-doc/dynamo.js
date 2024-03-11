@@ -13,11 +13,11 @@ async function getShipmentHeaderData({ orderNo }) {
     },
   };
   try {
-    const result = await dynamoDB.query(params).promise();
+    const result = await dbRead(params);
     return get(result, 'Items.[0]', {});
   } catch (error) {
     console.error('Error querying header details:', error.message);
-    return false;
+    return {};
   }
 }
 
@@ -30,12 +30,28 @@ async function getStatusTableData({ orderNo }) {
     },
   };
   try {
-    const data = await dynamoDB.query(params).promise();
+    const data = await dbRead(params);
     return get(data, 'Items', []);
   } catch (error) {
     console.error('Validation error:', error);
     return false;
   }
+}
+
+async function dbRead(params) {
+  let scanResults = [];
+  let items;
+  try {
+    do {
+      items = await dynamoDB.query(params).promise();
+      scanResults = scanResults.concat(get(items, 'Items', []));
+      params.ExclusiveStartKey = get(items, 'LastEvaluatedKey');
+    } while (typeof items.LastEvaluatedKey !== 'undefined');
+  } catch (e) {
+    console.error('DynamoDb scan error. ', ' Params: ', params, ' Error: ', e);
+    throw e;
+  }
+  return scanResults;
 }
 
 module.exports = { getShipmentHeaderData, getStatusTableData };
