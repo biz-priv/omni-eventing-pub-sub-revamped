@@ -1,8 +1,7 @@
 'use strict';
 const { get } = require('lodash');
-const { publishToSNS, STATUSES } = require('./helper');
+const { publishToSNS, STATUSES, getCstTimestamp } = require('./helper');
 const AWS = require('aws-sdk');
-const moment = require('moment-timezone');
 const { getStatusTableData } = require('./dynamo');
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
@@ -16,19 +15,32 @@ module.exports.handler = async (event, context) => {
       event.Records.map(async (record) => {
         const newImage = get(record, 'dynamodb.NewImage');
         const orderNo = get(newImage, 'FK_OrderNo.S', '');
-        const existingItem = await getStatusTableData({ orderNo });
-        console.info(
-          '🙂 -> file: shipment-file-stream-processor.js:19 -> event.Records.map -> existingItem:',
-          existingItem
-        );
-        if (existingItem.filter((item) => get(item, 'Status') === STATUSES.SENT).length > 0) {
-          console.info(`Order no: ${orderNo} had already been processed.`);
-          return `Order no: ${orderNo} had already been processed.`;
+        try {
+          const existingItem = await getStatusTableData({ orderNo });
+          console.info(
+            '🙂 -> file: shipment-file-stream-processor.js:19 -> event.Records.map -> existingItem:',
+            existingItem
+          );
+          if (existingItem.filter((item) => get(item, 'Status') === STATUSES.SENT).length > 0) {
+            console.info(`Order no: ${orderNo} had already been processed.`);
+            return `Order no: ${orderNo} had already been processed.`;
+          }
+          if (
+            existingItem.filter(
+              (item) =>
+                get(item, 'Status') === STATUSES.SKIPPED &&
+                get(item, 'Message', '').includes('Shipment milestone table is not populated')
+            ).length > 0
+          ) {
+            return await updateStatusTable({ orderNo, status: STATUSES.PENDING });
+          }
+          return true;
+        } catch (error) {
+          const errorMessage = `Error details: ${error}. Order no: ${orderNo}`;
+          console.error(errorMessage);
+          await publishToSNS(errorMessage, context.functionName);
+          return false;
         }
-        if (existingItem.filter((item) => get(item, 'Status') !== STATUSES.SENT).length > 0) {
-          return await updateStatusTable({ orderNo, status: STATUSES.PENDING });
-        }
-        return true;
       })
     );
   } catch (error) {
@@ -49,7 +61,7 @@ async function updateStatusTable({ orderNo, status }) {
       ExpressionAttributeValues: {
         ':status': status,
         ':lastUpdateBy': functionName,
-        ':lastUpdatedAt': moment.tz('America/Chicago').format(),
+        ':lastUpdatedAt': getCstTimestamp(),
       },
     };
     console.info(
