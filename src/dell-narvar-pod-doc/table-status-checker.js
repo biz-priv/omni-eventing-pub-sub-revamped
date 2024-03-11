@@ -102,6 +102,10 @@ module.exports.handler = async (event, context) => {
               Pending tables: ${JSON.stringify(pickBy(originalTableStatuses, (value) => value === STATUSES.PENDING))}\n
             `,
             });
+            throw new Error(`Tables are not populated for Order id: ${orderNo}\n
+            Pending tables: ${JSON.stringify(pickBy(originalTableStatuses, (value) => value === STATUSES.PENDING))}\n
+            Table name: ${process.env.DOC_STATUS_TABLE}
+          `);
           }
         } catch (error) {
           console.info(
