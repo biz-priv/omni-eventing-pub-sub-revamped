@@ -56,17 +56,8 @@ module.exports.handler = async (event, context) => {
             originalTableStatuses
           );
 
-          if (Object.values(originalTableStatuses).includes(STATUSES.PENDING)) {
-            await updateStatusTable({
-              orderNo,
-              originalTableStatuses,
-              retryCount,
-              status: STATUSES.PENDING,
-            });
-          }
-
           if (!Object.values(originalTableStatuses).includes(STATUSES.PENDING)) {
-            await updateStatusTable({
+            return await updateStatusTable({
               orderNo,
               originalTableStatuses,
               retryCount,
@@ -78,12 +69,13 @@ module.exports.handler = async (event, context) => {
             originalTableStatuses,
             (value) => value === STATUSES.PENDING
           );
+
           if (
             Object.keys(pendingStatuses).length === 1 &&
             get(originalTableStatuses, 'SHIPMENT_MILESTONE_TABLE', null) === STATUSES.PENDING &&
             retryCount >= 5
           ) {
-            await updateStatusTable({
+            return await updateStatusTable({
               orderNo,
               originalTableStatuses,
               retryCount,
@@ -107,6 +99,7 @@ module.exports.handler = async (event, context) => {
             Table name: ${process.env.DOC_STATUS_TABLE}
           `);
           }
+          return true;
         } catch (error) {
           console.info(
             '🙂 -> file: table-status-checker.js:100 -> getPendingRecordsRes.map -> error:',
@@ -118,7 +111,7 @@ module.exports.handler = async (event, context) => {
             message: error.message,
           });
           const errorMessage = `An error occurred in function ${context.functionName}. Error details: ${error}.`;
-          await publishToSNS(errorMessage, context.functionName);
+          return await publishToSNS(errorMessage, context.functionName);
         }
       })
     );

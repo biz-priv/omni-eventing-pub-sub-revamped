@@ -23,7 +23,7 @@ async function publishToSNS(message, subject) {
   const sns = new AWS.SNS({ region: REGION });
 
   const params = {
-    Message: `${message}\n Retrigger process: Set the status to PENDING and ResetCount to 0 of that particular record in ${process.env.DOC_STATUS_TABLE}`,
+    Message: `${message} \n Retrigger process: Set the status to PENDING and ResetCount to 0 of that particular record in ${process.env.DOC_STATUS_TABLE}`,
     Subject: `Lambda function ${subject} has failed.`,
     TopicArn: process.env.ERROR_SNS_TOPIC_ARN,
   };
