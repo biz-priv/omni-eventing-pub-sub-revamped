@@ -130,7 +130,7 @@ async function insertIntoDocStatusTable({
         Message: message,
         CreatedAt: getCstTimestamp(),
         LastUpdatedAt: getCstTimestamp(),
-        LastUpdatedBy: functionName,
+        LastUpdateBy: functionName,
       },
     };
     if (status === STATUSES.PENDING) {
