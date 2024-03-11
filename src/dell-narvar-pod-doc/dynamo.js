@@ -43,6 +43,7 @@ async function dbRead(params) {
   let items;
   try {
     do {
+      console.info('dbRead > params ', params);
       items = await dynamoDB.query(params).promise();
       scanResults = scanResults.concat(get(items, 'Items', []));
       params.ExclusiveStartKey = get(items, 'LastEvaluatedKey');
@@ -51,7 +52,7 @@ async function dbRead(params) {
     console.error('DynamoDb scan error. ', ' Params: ', params, ' Error: ', e);
     throw e;
   }
-  return scanResults;
+  return { Items: scanResults };
 }
 
 module.exports = { getShipmentHeaderData, getStatusTableData };
