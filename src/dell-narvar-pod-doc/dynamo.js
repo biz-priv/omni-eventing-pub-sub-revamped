@@ -34,7 +34,7 @@ async function getStatusTableData({ orderNo }) {
     return get(data, 'Items', []);
   } catch (error) {
     console.error('Validation error:', error);
-    return false;
+    return [];
   }
 }
 
