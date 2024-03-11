@@ -1,12 +1,11 @@
 'use strict';
 const { get } = require('lodash');
-const { publishToSNS, STATUSES } = require('./helper');
+const { publishToSNS, STATUSES, getCstTimestamp } = require('./helper');
 const { getShipmentHeaderData } = require('./dynamo');
 const AWS = require('aws-sdk');
 const Joi = require('joi');
 const { v4 } = require('uuid');
 const axios = require('axios').default;
-const moment = require('moment-timezone');
 
 const sns = new AWS.SNS({ apiVersion: '2010-03-31' });
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
@@ -304,7 +303,7 @@ async function updateStatusTable({ orderNo, status, message, payload }) {
       ExpressionAttributeValues: {
         ':status': status,
         ':lastUpdateBy': functionName,
-        ':lastUpdatedAt': moment.tz('America/Chicago').format(),
+        ':lastUpdatedAt': getCstTimestamp(),
         ':message': message,
       },
     };

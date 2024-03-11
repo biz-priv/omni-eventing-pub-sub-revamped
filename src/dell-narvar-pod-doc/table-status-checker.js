@@ -1,9 +1,8 @@
 'use strict';
 
 const { get, pickBy } = require('lodash');
-const { STATUSES, tableParams, publishToSNS } = require('./helper');
+const { STATUSES, tableParams, publishToSNS, getCstTimestamp } = require('./helper');
 const AWS = require('aws-sdk');
-const moment = require('moment-timezone');
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 
@@ -164,7 +163,7 @@ async function updateStatusTable({ orderNo, originalTableStatuses, retryCount, s
         ':retryCount': retryCount + 1,
         ':status': status,
         ':lastUpdateBy': functionName,
-        ':lastUpdatedAt': moment.tz('America/Chicago').format(),
+        ':lastUpdatedAt': getCstTimestamp(),
       },
     };
     console.info(
@@ -189,7 +188,7 @@ async function updateStatusTableStatus({ orderNo, status, message }) {
       ExpressionAttributeValues: {
         ':status': status,
         ':lastUpdateBy': functionName,
-        ':lastUpdatedAt': moment.tz('America/Chicago').format(),
+        ':lastUpdatedAt': getCstTimestamp(),
         ':message': message,
       },
     };
