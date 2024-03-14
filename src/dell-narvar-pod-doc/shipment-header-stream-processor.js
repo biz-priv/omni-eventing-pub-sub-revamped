@@ -1,8 +1,8 @@
 'use strict';
 const { get } = require('lodash');
-const { publishToSNS, tableStatuses, STATUSES, getCstTimestamp } = require('./helper');
+const { publishToSNS, STATUSES, getCstTimestamp } = require('./helper');
 const AWS = require('aws-sdk');
-const { getShipmentHeaderData, getStatusTableData } = require('./dynamo');
+const { getStatusTableData } = require('./dynamo');
 
 const dynamoDB = new AWS.DynamoDB.DocumentClient();
 
@@ -13,14 +13,13 @@ module.exports.handler = async (event, context) => {
   try {
     await Promise.all(
       event.Records.map(async (record) => {
-        const uploadDateTime = get(record, 'UploadDateTime');
-        if (uploadDateTime < '2024-03-04') {
-          console.info(`UploadDateTime: ${uploadDateTime} is less than 2024-03-04. Skipping.`);
+        const uploadDateTime = get(record, 'InsertedTimeStamp');
+        if (uploadDateTime < '2024-03-12') {
+          console.info(`UploadDateTime: ${uploadDateTime} is less than 2024-03-12. Skipping.`);
           return true;
         }
         const newImage = get(record, 'dynamodb.NewImage');
-        const orderNo = get(newImage, 'FK_OrderNo.S', '');
-        const docType = get(newImage, 'FK_DocType.S', '');
+        const orderNo = get(newImage, 'PK_OrderNo.S', '');
         try {
           const existingItem = await getStatusTableData({ orderNo });
           console.info(
@@ -31,23 +30,11 @@ module.exports.handler = async (event, context) => {
             console.info(`Order no: ${orderNo} had already been processed.`);
             return `Order no: ${orderNo} had already been processed.`;
           }
-          const shipmentHeaderDataRes = await getShipmentHeaderData({ orderNo });
-          console.info(
-            '🙂 -> file: shipment-file-stream-processor.js:17 -> event.Records.map -> shipmentHeaderDataRes:',
-            shipmentHeaderDataRes
-          );
-          const houseBill = get(shipmentHeaderDataRes, 'Housebill', null);
-          if (!houseBill) {
-            console.info(
-              `Housebill number not present for order id in shipment header table: ${orderNo}`
-            );
-            return await insertIntoDocStatusTable({
-              orderNo,
-              status: STATUSES.SKIPPED,
-              docType,
-              message: `Housebill number not present for order id in shipment header table: ${orderNo}`,
-            });
+          if (existingItem.length === 0) {
+            console.info(`Order no: ${orderNo} not present in the status table.`);
+            return `Order no: ${orderNo} not present in the status table.`;
           }
+          const houseBill = get(newImage, 'Housebill.S', '');
           const customerRes = await getCustomer({ houseBill });
           console.info(
             '🙂 -> file: shipment-file-stream-processor.js:23 -> event.Records.map -> customerRes:',
@@ -57,6 +44,7 @@ module.exports.handler = async (event, context) => {
             console.info(
               `Customer not present for housebill number in shipment entitlement table: ${houseBill} or the customer is not Dell`
             );
+            await deleteDynamoRecord({ orderNo });
             return `Customer not present for housebill number in shipment entitlement table: ${houseBill} or the customer is not Dell`;
           }
           const customerIDs = customerRes.map((customer) => get(customer, 'CustomerID')).join();
@@ -64,11 +52,11 @@ module.exports.handler = async (event, context) => {
             '🙂 -> file: shipment-file-stream-processor.js:25 -> event.Records.map -> customerIDs:',
             customerIDs
           );
-          return await insertIntoDocStatusTable({
+
+          return await updateStatusTable({
             customerIDs,
             houseBill,
             orderNo,
-            docType,
             status: STATUSES.PENDING,
           });
         } catch (error) {
@@ -104,6 +92,7 @@ async function getCustomer({ houseBill }) {
 
   custIds.forEach((id, index) => {
     params.ExpressionAttributeValues[`:customer_id${index}`] = id;
+    console.info('🙂 -> file: test.js:48 -> ExpressionAttributeValues:', params);
   });
   try {
     const data = await dynamoDB.query(params).promise();
@@ -111,46 +100,6 @@ async function getCustomer({ houseBill }) {
   } catch (error) {
     console.error('Validation error:', error);
     return [];
-  }
-}
-
-async function insertIntoDocStatusTable({
-  orderNo,
-  houseBill,
-  customerIDs,
-  status,
-  message,
-  docType,
-}) {
-  try {
-    const insertParams = {
-      TableName: process.env.DOC_STATUS_TABLE,
-      Item: {
-        FK_OrderId: orderNo,
-        Status: status,
-        HouseBill: houseBill,
-        CustomerIDs: customerIDs,
-        DocType: docType,
-        RetryCount: 0,
-        Payload: '',
-        Message: message,
-        CreatedAt: getCstTimestamp(),
-        LastUpdatedAt: getCstTimestamp(),
-        LastUpdateBy: functionName,
-      },
-    };
-    if (status === STATUSES.PENDING) {
-      insertParams.Item.TableStatuses = tableStatuses;
-    }
-    console.info(
-      '🙂 -> file: shipment-file-stream-processor.js:129 -> insertIntoDocStatusTable -> insertParams:',
-      insertParams
-    );
-    return await dynamoDB.put(insertParams).promise();
-  } catch (error) {
-    throw new Error(
-      `Error inserting into doc status table. Order id: ${orderNo}, message: ${error.message}`
-    );
   }
 }
 
@@ -168,4 +117,47 @@ async function getFilterPolicy() {
   const dellCustomerIds = get(filterPolicyObject, 'customer_id');
   console.info('🙂 -> file: test.js:20 -> dellCustomerIds:', dellCustomerIds);
   return dellCustomerIds;
+}
+
+async function deleteDynamoRecord({ orderNo }) {
+  const params = {
+    TableName: process.env.DOC_STATUS_TABLE,
+    Key: { FK_OrderId: orderNo },
+  };
+  try {
+    const data3 = await dynamoDB.delete(params).promise();
+    console.info('🙂 -> file: test.js:176 -> deleteDynamoRecord -> data3:', data3);
+    return true;
+  } catch (error) {
+    console.error('Validation error:', error);
+    throw error;
+  }
+}
+
+async function updateStatusTable({ orderNo, status, customerIDs, houseBill }) {
+  try {
+    const updateParam = {
+      TableName: process.env.DOC_STATUS_TABLE,
+      Key: { FK_OrderId: orderNo },
+      UpdateExpression:
+        'set #Status = :status, CustomerIDs = :customerIDs, HouseBill = :houseBill, RetryCount = :retryCount, LastUpdateBy = :lastUpdateBy, LastUpdatedAt = :lastUpdatedAt',
+      ExpressionAttributeNames: { '#Status': 'Status' },
+      ExpressionAttributeValues: {
+        ':status': status,
+        ':customerIDs': customerIDs,
+        ':houseBill': houseBill,
+        ':retryCount': 0,
+        ':lastUpdateBy': functionName,
+        ':lastUpdatedAt': getCstTimestamp(),
+      },
+    };
+    console.info(
+      '🙂 -> file: table-status-checker.js:79 -> updateStatusTable -> updateParam:',
+      updateParam
+    );
+    return await dynamoDB.update(updateParam).promise();
+  } catch (error) {
+    console.info('🙂 -> file: table-status-checker.js:82 -> updateStatusTable -> error:', error);
+    throw error;
+  }
 }
