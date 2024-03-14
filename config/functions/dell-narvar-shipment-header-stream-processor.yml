@@ -1,0 +1,28 @@
+---
+function:
+  name: dell-narvar-pod-doc-shipment-header-stream-processor-${self:provider.stage}
+  handler: src/dell-narvar-pod-doc/shipment-header-stream-processor.handler
+  memorySize: 2048
+  timeout: 900
+  layers:
+    - !Ref NodeModulesLambdaLayer
+  package:
+    patterns:
+      - '!**/*'
+      - src/dell-narvar-pod-doc/shipment-header-stream-processor.js
+      - src/dell-narvar-pod-doc/helper.js
+      - src/dell-narvar-pod-doc/dynamo.js
+
+  events:
+    - stream:
+        arn: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.streamArn}
+        batchSize: 5
+        maximumRetryAttempts: 3
+
+  environment:
+    SHIPMENT_HEADER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.tableName}
+    SHIPMENT_MILESTONE_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-milestone/ddb.tableName}
+    CUSTOMER_ENTITLEMENT_TABLE: ${ssm:/omni-dw/${self:provider.stage}/customerEntitlement/table}
+    ENTITLEMENT_HOUSEBILL_INDEX: ${ssm:/omni-dw/${self:provider.stage}/entitlement/HouseBillNumber/index}
+    DOC_STATUS_TABLE: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/status-table/name}
+    SUBSCRIPTION_ARN: ${ssm:/dell-narvar-pod-doc/${self:provider.stage}/subscription-arn}
