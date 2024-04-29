@@ -1,0 +1,28 @@
+---
+function:
+  name: dell-narvar-event-publish-${self:provider.stage}
+  handler: src/dell-narvar-eventing/event-publish.handler
+  runtime: nodejs16.x
+  memorySize: 2048
+  timeout: 900
+  layers:
+    - !Ref NodeModulesLambdaLayer
+  package:
+    patterns:
+      - '!**/*'
+      - src/dell-narvar-eventing/event-publish.js
+
+  events:
+    - stream:
+        type: dynamodb
+        arn: ${ssm:/dell-narvar-eventing/${self:provider.stage}/status-table/arn}
+        batchSize: 5
+        maximumRetryAttempts: 3
+        bisectBatchOnFunctionError: true
+        filterPatterns:
+          - { dynamodb: { NewImage: { deliveryStatus: { S: ['PENDING'] } } } }
+
+  environment:
+    EVENTING_TOPICS_TABLE: ${ssm:/omni/${self:provider.stage}/eventing/topics/table/name}
+    ERROR_SNS_ARN: ${ssm:/omni-reports/${self:provider.stage}/error-notification/sns/arn}
+    SHIPMENT_EVENT_STATUS_TABLE: ${ssm:/omni/${self:provider.stage}/eventing/event-status/table/name}
