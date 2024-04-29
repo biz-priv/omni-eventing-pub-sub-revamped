@@ -29,6 +29,7 @@ function:
         bisectBatchOnFunctionError: true
 
   environment:
+    STAGE: ${self:provider.stage}
     SHIPMENT_HEADER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.tableName}
     SHIPMENT_MILESTONE_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-milestone/ddb.tableName}
     REFERENCES_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/references/ddb.tableName}
