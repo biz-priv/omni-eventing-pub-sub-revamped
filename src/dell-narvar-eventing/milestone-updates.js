@@ -100,7 +100,8 @@ async function processShipmentHeader(newImage, oldImage) {
         return;
       }
       const etaDateTime = _.get(newImage, 'ETADateTime');
-      const estimatedDeliveryDate = _.includes(etaDateTime, '1900') ? 'NA' : etaDateTime;
+      const estimatedDeliveryDate =
+        etaDateTime === 'NULL' || etaDateTime === '' ? 'NA' : etaDateTime;
       const shipperDetails = await queryShipperDetails(OrderNo);
       const consigneeDetails = await queryConsigneeDetails(OrderNo);
 
@@ -159,12 +160,17 @@ async function processShipmentHeader(newImage, oldImage) {
       const validationResult = schema.validate(payload, { abortEarly: false });
 
       if (_.get(validationResult, 'error')) {
-        // Joi validation failed, throw an error with the details
-        throw new Error(`Payload validation error: ${_.get(validationResult, 'error.message')}`);
+        // Joi validation failed, construct a more informative error message
+        const errorDetails = validationResult.error.details
+          .map((detail) => `"${detail.context.key}" ${detail.message}`)
+          .join('\n');
+        throw new Error(`Payload validation error:\n${errorDetails}`);
       }
-      // Get all customer IDs based on the tracking number
-      const trackingNo = _.get(payload, 'trackingNo');
-      const customerIds = await getCustomer(trackingNo);
+      const customerIds = mapBillNoToCustomerId(_.get(newImage, 'BillNo'));
+      console.info(
+        '🚀 ~ file: milestone-updates.js:167 ~ processShipmentHeader ~ customerIds:',
+        customerIds
+      );
       await saveToDynamoDB(payload, customerIds.join(), 'Pending', OrderNo);
       console.info('The record is processed');
     } else {
@@ -470,4 +476,94 @@ async function saveToDynamoDB(payload, customerId, deliveryStatus, orderNo) {
   } catch (error) {
     console.error('Error saving to DynamoDB:', error);
   }
+}
+
+// Define your data as an array of objects
+const data = [
+  { customerId: 10584705, billNo: 53357 },
+  { customerId: 10589957, billNo: 53353 },
+  { customerId: 10589703, billNo: 53527 },
+  { customerId: 10584143, billNo: 53362 },
+  { customerId: 10582179, billNo: 53376 },
+  { customerId: 10582571, billNo: 53347 },
+  { customerId: 10585838, billNo: 53369 },
+  { customerId: 10588591, billNo: 53525 },
+  { customerId: 10590126, billNo: 53519 },
+  { customerId: 10582086, billNo: 53364 },
+  { customerId: 10585388, billNo: 53378 },
+  { customerId: 10582214, billNo: 53393 },
+  { customerId: 10582507, billNo: 53374 },
+  { customerId: 10585671, billNo: 53350 },
+  { customerId: 10592397, billNo: 53508 },
+  { customerId: 10589932, billNo: 53512 },
+  { customerId: 10588333, billNo: 53377 },
+  { customerId: 10583560, billNo: 53368 },
+  { customerId: 10585356, billNo: 53356 },
+  { customerId: 10582182, billNo: 53391 },
+  { customerId: 10582083, billNo: 53343 },
+  { customerId: 10589900, billNo: 53517 },
+  { customerId: 10584442, billNo: 53341 },
+  { customerId: 10585575, billNo: 53344 },
+  { customerId: 10587176, billNo: 53521 },
+  { customerId: 10587112, billNo: 53510 },
+  { customerId: 10584673, billNo: 53389 },
+  { customerId: 10589925, billNo: 53361 },
+  { customerId: 10587172, billNo: 53513 },
+  { customerId: 10584513, billNo: 53352 },
+  { customerId: 10583872, billNo: 53384 },
+  { customerId: 10584410, billNo: 53383 },
+  { customerId: 10582051, billNo: 53366 },
+  { customerId: 10586729, billNo: 53395 },
+  { customerId: 10585023, billNo: 53348 },
+  { customerId: 10584378, billNo: 53351 },
+  { customerId: 10586992, billNo: 53385 },
+  { customerId: 10585902, billNo: 53355 },
+  { customerId: 10596785, billNo: 53526 },
+  { customerId: 10588628, billNo: 53392 },
+  { customerId: 10587088, billNo: 53373 },
+  { customerId: 10588179, billNo: 53367 },
+  { customerId: 10593140, billNo: 53524 },
+  { customerId: 10587120, billNo: 53388 },
+  { customerId: 10589077, billNo: 53514 },
+  { customerId: 10612211, billNo: 54302 },
+  { customerId: 10580950, billNo: 53346 },
+  { customerId: 10585934, billNo: 53372 },
+  { customerId: 10588344, billNo: 53529 },
+  { customerId: 10590583, billNo: 53518 },
+  { customerId: 10608120, billNo: 54303 },
+  { customerId: 10586960, billNo: 53394 },
+  { customerId: 10582603, billNo: 53387 },
+  { customerId: 10585870, billNo: 53371 },
+  { customerId: 10589391, billNo: 53551 },
+  { customerId: 10584152, billNo: 53349 },
+  { customerId: 10584250, billNo: 53363 },
+  { customerId: 10587056, billNo: 53360 },
+  { customerId: 10586674, billNo: 53342 },
+  { customerId: 10580886, billNo: 53345 },
+  { customerId: 10585206, billNo: 53522 },
+  { customerId: 10604886, billNo: 54304 },
+  { customerId: 10588724, billNo: 53370 },
+  { customerId: 10590519, billNo: 53515 },
+  { customerId: 10592595, billNo: 53536 },
+  { customerId: 10581821, billNo: 53386 },
+  { customerId: 10582137, billNo: 53375 },
+  { customerId: 10589054, billNo: 53516 },
+  { customerId: 10585943, billNo: 53365 },
+  { customerId: 10588376, billNo: 53511 },
+  { customerId: 10581789, billNo: 53358 },
+  { customerId: 10584282, billNo: 53359 },
+  { customerId: 10588639, billNo: 53523 },
+  { customerId: 10584120, billNo: 53379 },
+  { customerId: 10583515, billNo: 53354 },
+  { customerId: 10584218, billNo: 53390 },
+  { customerId: 10587163, billNo: 53509 },
+];
+
+// Create a mapping function
+function mapBillNoToCustomerId(billNo) {
+  // Convert the data into a Map where billNo is the key and customerId is the value
+  const mapping = new Map(data.map((entry) => [entry.billNo, entry.customerId]));
+
+  // Retrieve the customerId corresponding to the billNo from the mapping
+  return mapping.get(billNo);
 }
