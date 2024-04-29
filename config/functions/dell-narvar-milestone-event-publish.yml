@@ -20,7 +20,7 @@ function:
         maximumRetryAttempts: 3
         bisectBatchOnFunctionError: true
         filterPatterns:
-          - { dynamodb: { NewImage: { deliveryStatus: { S: ['PENDING'] } } } }
+          - { dynamodb: { NewImage: { deliveryStatus: { S: ['Pending'] } } } }
 
   environment:
     EVENTING_TOPICS_TABLE: ${ssm:/omni/${self:provider.stage}/eventing/topics/table/name}

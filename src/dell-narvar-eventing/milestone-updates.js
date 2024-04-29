@@ -166,12 +166,14 @@ async function processShipmentHeader(newImage, oldImage) {
           .join('\n');
         throw new Error(`Payload validation error:\n${errorDetails}`);
       }
-      const customerIds = mapBillNoToCustomerId(_.get(newImage, 'BillNo'));
+      const billNo = Number(_.get(newImage, 'BillNo'));
+      console.info('🚀 ~ file: milestone-updates.js:170 ~ processShipmentHeader ~ billNo:', billNo);
+      const customerId = mapBillNoToCustomerId(billNo);
       console.info(
         '🚀 ~ file: milestone-updates.js:167 ~ processShipmentHeader ~ customerIds:',
-        customerIds
+        customerId
       );
-      await saveToDynamoDB(payload, customerIds.join(), 'Pending', OrderNo);
+      await saveToDynamoDB(payload, customerId, 'Pending', OrderNo);
       console.info('The record is processed');
     } else {
       console.info('No changes in the ScheduleDateTime field');
@@ -465,7 +467,7 @@ async function saveToDynamoDB(payload, customerId, deliveryStatus, orderNo) {
       id: payload.id,
       FK_OrderNo: orderNo,
       trackingNo: payload.trackingNo,
-      customerId,
+      customerId: String(customerId),
       InsertedTimeStamp: moment.tz('America/Chicago').format('YYYY:MM:DD HH:mm:ss').toString(),
       payload: JSON.stringify(payload),
       deliveryStatus,
@@ -562,8 +564,9 @@ const data = [
 // Create a mapping function
 function mapBillNoToCustomerId(billNo) {
   // Convert the data into a Map where billNo is the key and customerId is the value
-  const mapping = new Map(data.map((entry) => [entry.billNo, entry.customerId]));
-
+  const mapping = new Map(
+    data.map((entry) => [_.get(entry, 'billNo'), _.get(entry, 'customerId')])
+  );
   // Retrieve the customerId corresponding to the billNo from the mapping
   return mapping.get(billNo);
 }
