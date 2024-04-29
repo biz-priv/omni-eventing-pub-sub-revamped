@@ -95,13 +95,19 @@ async function processShipmentHeader(newImage, oldImage) {
         '🚀 ~ file: milestone-updates.js:90 ~ processShipmentHeader ~ scheduledDateTime:',
         scheduledDateTime
       );
-      if (_.includes(scheduledDateTime, '1900')) {
+      if (
+        _.includes(scheduledDateTime, '1900') ||
+        scheduledDateTime === 'NULL' ||
+        scheduledDateTime === ''
+      ) {
         console.info('Skipping execution for scheduledDateTime: ', scheduledDateTime);
         return;
       }
       const etaDateTime = _.get(newImage, 'ETADateTime');
       const estimatedDeliveryDate =
-        etaDateTime === 'NULL' || etaDateTime === '' ? 'NA' : etaDateTime;
+        etaDateTime === 'NULL' || etaDateTime === '' || _.includes(etaDateTime, '1900')
+          ? 'NA'
+          : etaDateTime;
       const shipperDetails = await queryShipperDetails(OrderNo);
       const consigneeDetails = await queryConsigneeDetails(OrderNo);
 
@@ -279,15 +285,22 @@ async function publishToSNS(message, subject) {
 async function processDynamoDBRecord(dynamodbRecord) {
   try {
     const {
-      FK_OrderNo: { OrderNo },
-      FK_OrderStatusId: { OrderStatusId },
-      EventDateTime: { EventDateTime },
-      UUid: { id },
+      FK_OrderNo: OrderNo,
+      FK_OrderStatusId: OrderStatusId,
+      EventDateTime,
+      UUid: id,
     } = dynamodbRecord;
 
     const headerDetails = await queryHeaderDetails(OrderNo);
+    console.info(
+      '🚀 ~ file: milestone-updates.js:289 ~ processDynamoDBRecord ~ headerDetails:',
+      headerDetails
+    );
     const { ETADateTime, Housebill } = headerDetails;
-
+    const estimatedDeliveryDate =
+      ETADateTime === 'NULL' || ETADateTime === '' || _.includes(ETADateTime, '1900')
+        ? 'NA'
+        : ETADateTime;
     const shipperDetails = await queryShipperDetails(OrderNo);
     const consigneeDetails = await queryConsigneeDetails(OrderNo);
 
@@ -338,7 +351,7 @@ async function processDynamoDBRecord(dynamodbRecord) {
       carrier: _.get(shipperDetails, 'ShipName', ''),
       statusCode: OrderStatusId,
       lastUpdateDate: EventDateTime,
-      estimatedDeliveryDate: ETADateTime === '1900-01-01 00:00:00.000' ? 'NA' : ETADateTime,
+      estimatedDeliveryDate,
       identifier: 'NA',
       statusDescription: _.get(statusInfo, 'description'),
       retailerMoniker: 'dell',
@@ -387,6 +400,7 @@ async function queryShipperDetails(OrderNo) {
       ':orderNo': OrderNo,
     },
   };
+  console.info('🚀 ~ file: milestone-updates.js:390 ~ queryShipperDetails ~ params:', params);
   try {
     const result = await dynamoDB.query(params).promise();
     if (_.get(result, 'Items', []).length > 0) {
@@ -406,6 +420,7 @@ async function queryConsigneeDetails(OrderNo) {
       ':orderNo': OrderNo,
     },
   };
+  console.info('🚀 ~ file: milestone-updates.js:409 ~ queryConsigneeDetails ~ params:', params);
   try {
     const result = await dynamoDB.query(params).promise();
     if (_.get(result, 'Items', []).length > 0) {
@@ -425,6 +440,7 @@ async function queryHeaderDetails(OrderNo) {
       ':orderNo': OrderNo,
     },
   };
+  console.info('🚀 ~ file: milestone-updates.js:428 ~ queryHeaderDetails ~ params:', params);
   try {
     const result = await dynamoDB.query(params).promise();
     if (_.get(result, 'Items', []).length > 0) {
