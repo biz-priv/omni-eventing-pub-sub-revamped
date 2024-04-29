@@ -170,7 +170,9 @@ async function processShipmentHeader(newImage, oldImage) {
         const errorDetails = validationResult.error.details
           .map((detail) => `"${detail.context.key}" ${detail.message}`)
           .join('\n');
-        throw new Error(`Payload validation error:\n${errorDetails}`);
+        throw new Error(
+          `\nPayload validation error for Housebill: ${_.get(payload, 'trackingNo')} :\n${errorDetails}.`
+        );
       }
       const billNo = Number(_.get(newImage, 'BillNo'));
       console.info('🚀 ~ file: milestone-updates.js:170 ~ processShipmentHeader ~ billNo:', billNo);
