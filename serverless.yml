@@ -43,6 +43,8 @@ functions:
   dell-narvar-shipment-milestone-stream-processor: ${file(config/functions/dell-narvar-shipment-milestone-stream-processor.yml):function}
   dell-narvar-pod-table-status-checker: ${file(config/functions/dell-narvar-table-status-checker.yml):function}
   dell-narvar-pod-doc-sender: ${file(config/functions/dell-narvar-pod-doc-sender.yml):function}
+  dell-narvar-milestone-updates: ${file(config/functions/dell-narvar-milestone-updates.yml):function}
+  dell-narvar-milestone-event-publish: ${file(config/functions/dell-narvar-milestone-event-publish.yml):function}
 
 layers:
   NodeModules:
