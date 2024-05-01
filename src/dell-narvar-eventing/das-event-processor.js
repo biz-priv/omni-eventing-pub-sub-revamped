@@ -226,16 +226,20 @@ async function updateStatus(tableName, orderNo, statusColumn, statusValue) {
 async function checkAllStatusReady(orderNo) {
   const statusParams = {
     TableName: process.env.STATUS_TABLE,
-    Key: {
-      FK_OrderNo: orderNo,
+    KeyConditionExpression: 'FK_OrderNo = :orderNo',
+    ExpressionAttributeValues: {
+      ':orderNo': orderNo,
     },
   };
 
   try {
-    const data = await dynamoDB.get(statusParams).promise();
-    const shipmentHeaderStatus = data.Item.ShipmentHeaderStatus.S;
-    const shipperStatus = data.Item.ShipperStatus.S;
-    const consigneeStatus = data.Item.ConsigneeStatus.S;
+    const data = await dynamoDB.query(statusParams).promise();
+    if (data.Items.length === 0) {
+      return false;
+    }
+    const shipmentHeaderStatus = _.get(data, 'Items[0].ShipmentHeaderStatus', '');
+    const shipperStatus = _.get(data, 'Items[0].ShipperStatus', '');
+    const consigneeStatus = _.get(data, 'Items[0].ConsigneeStatus', '');
     return (
       shipmentHeaderStatus === 'READY' && shipperStatus === 'READY' && consigneeStatus === 'READY'
     );
