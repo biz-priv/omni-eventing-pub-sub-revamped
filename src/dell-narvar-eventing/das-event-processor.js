@@ -519,16 +519,19 @@ async function processShipperAndConsignee(newImage, tableName) {
     let orderNo;
     if (tableName === process.env.SHIPPER_TABLE) {
       orderNo = newImage.FK_ShipOrderNo;
-      await updateShipperStatus(newImage);
     } else {
       orderNo = newImage.FK_ConOrderNo;
-      await updateConsigneeStatus(newImage);
     }
 
     // Query status table if the order is present there or not
     const orderNoExists = await checkRecordExistsInStatusTable(orderNo);
 
     if (orderNoExists.length > 0) {
+      if (tableName === process.env.SHIPPER_TABLE) {
+        await updateShipperStatus(newImage);
+      } else {
+        await updateConsigneeStatus(newImage);
+      }
       // Check if all statuses are READY and update main status column
       const allReady = await checkAllStatusReady(orderNo);
       if (allReady) {
