@@ -1,7 +1,7 @@
 ---
 function:
-  name: dell-narvar-milestone-updates-${self:provider.stage}
-  handler: src/dell-narvar-eventing/milestone-updates.handler
+  name: dell-narvar-das-event-processor-${self:provider.stage}
+  handler: src/dell-narvar-eventing/das-event-processor.handler
   runtime: nodejs18.x
   memorySize: 2048
   timeout: 900
@@ -9,26 +9,41 @@ function:
   package:
     patterns:
       - '!**/*'
-      - src/dell-narvar-eventing/milestone-updates.js
+      - src/dell-narvar-eventing/das-event-processor.js
 
   layers:
     - !Ref NodeModulesLambdaLayer
 
   events:
     - stream:
-        arn: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-milestone/ddb.streamArn}
+        arn: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipper/ddb.streamArn}
+        batchSize: 5
+        maximumRetryAttempts: 3
+        bisectBatchOnFunctionError: true
+
+    - stream:
+        arn: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consignee/ddb.streamArn}
+        batchSize: 5
+        maximumRetryAttempts: 3
+        bisectBatchOnFunctionError: true
+
+    - stream:
+        arn: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.streamArn}
+        batchSize: 5
+        maximumRetryAttempts: 3
+        bisectBatchOnFunctionError: true
+
+    - stream:
+        arn: ${ssm:/dell-narvar-eventing/${self:provider.stage}/status/ddb.arn}
         batchSize: 5
         maximumRetryAttempts: 3
         bisectBatchOnFunctionError: true
         filterPatterns:
-          - { dynamodb: { NewImage: { ProcessState: { S: ['Not Processed'] } } } }
+          - { dynamodb: { NewImage: { Status: { S: ['READY'] } } } }
 
   environment:
     STAGE: ${self:provider.stage}
     SHIPMENT_HEADER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.tableName}
-    SHIPMENT_MILESTONE_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-milestone/ddb.tableName}
-    REFERENCES_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/references/ddb.tableName}
-    REFERENCES_ORDERNO_INDEX: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/references/ddb.orderNoIndex}
     CONSIGNEE_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/consignee/ddb.tableName}
     SHIPPER_TABLE: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipper/ddb.tableName}
     EVENTING_TOPICS_TABLE: ${ssm:/omni/${self:provider.stage}/eventing/topics/table/name}
@@ -37,3 +52,4 @@ function:
     CUSTOMER_ENTITLEMENT_TABLE: ${ssm:/omni-dw/${self:provider.stage}/customerEntitlement/table}
     ENTITLEMENT_HOUSEBILL_INDEX: ${ssm:/omni-dw/${self:provider.stage}/entitlement/HouseBillNumber/index}
     SHIPMENT_EVENT_STATUS_TABLE: ${ssm:/omni/${self:provider.stage}/eventing/event-status/table/name}
+    STATUS_TABLE: ${ssm:/dell-narvar-eventing/${self:provider.stage}/status-table/name}
