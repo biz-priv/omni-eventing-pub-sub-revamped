@@ -22,11 +22,6 @@ function:
         bisectBatchOnFunctionError: true
         filterPatterns:
           - { dynamodb: { NewImage: { ProcessState: { S: ['Not Processed'] } } } }
-    - stream:
-        arn: ${ssm:/omni-wt-rt-updates/${self:provider.stage}/shipment-header/ddb.streamArn}
-        batchSize: 5
-        maximumRetryAttempts: 3
-        bisectBatchOnFunctionError: true
 
   environment:
     STAGE: ${self:provider.stage}

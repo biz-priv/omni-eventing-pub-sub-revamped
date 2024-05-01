@@ -80,7 +80,15 @@ async function processShipmentHeader(newImage, oldImage) {
           ? 'NA'
           : etaDateTime;
       const shipperDetails = await queryShipperDetails(orderNo);
+      console.info(
+        '🚀 ~ file: das-event-processor.js:83 ~ processShipmentHeader ~ shipperDetails:',
+        shipperDetails
+      );
       const consigneeDetails = await queryConsigneeDetails(orderNo);
+      console.info(
+        '🚀 ~ file: das-event-processor.js:85 ~ processShipmentHeader ~ consigneeDetails:',
+        consigneeDetails
+      );
       // Check if shipper and consignee details are missing
       if (shipperDetails.length === 0 || consigneeDetails.length === 0) {
         // Insert order number and status columns into status table
@@ -118,26 +126,27 @@ async function processShipmentHeader(newImage, oldImage) {
       const payload = {
         id: _.get(newImage, 'UUid'), // UUid from shipment header dynamodb table
         trackingNo: _.get(newImage, 'Housebill'),
-        carrier: _.get(shipperDetails, 'ShipName', ''),
+        carrier: _.get(shipperDetails, '[0]ShipName', ''),
         statusCode: 'DAS',
         lastUpdateDate: scheduledDateTime,
         estimatedDeliveryDate,
         identifier: 'NA',
         statusDescription: 'DELIVERY APPOINTMENT SECURED',
         retailerMoniker: 'dell',
-        originCity: _.get(shipperDetails, 'ShipCity', ''),
-        originState: _.get(shipperDetails, 'FK_ShipState', ''),
-        originZip: _.get(shipperDetails, 'ShipZip', ''),
-        originCountryCode: _.get(shipperDetails, 'FK_ShipCountry', ''),
-        destCity: _.get(consigneeDetails, 'ConCity', ''),
-        destState: _.get(consigneeDetails, 'FK_ConState', ''),
-        destZip: _.get(consigneeDetails, 'ConZip', ''),
-        destCountryCode: _.get(consigneeDetails, 'FK_ConCountry', ''),
-        eventState: _.get(consigneeDetails, 'FK_ConState', ''),
-        eventCity: _.get(consigneeDetails, 'ConCity', ''),
-        eventZip: _.get(consigneeDetails, 'ConZip', ''),
-        eventCountryCode: _.get(consigneeDetails, 'FK_ConCountry', ''),
+        originCity: _.get(shipperDetails, '[0]ShipCity', ''),
+        originState: _.get(shipperDetails, '[0]FK_ShipState', ''),
+        originZip: _.get(shipperDetails, '[0]ShipZip', ''),
+        originCountryCode: _.get(shipperDetails, '[0]FK_ShipCountry', ''),
+        destCity: _.get(consigneeDetails, '[0]ConCity', ''),
+        destState: _.get(consigneeDetails, '[0]FK_ConState', ''),
+        destZip: _.get(consigneeDetails, '[0]ConZip', ''),
+        destCountryCode: _.get(consigneeDetails, '[0]FK_ConCountry', ''),
+        eventState: _.get(consigneeDetails, '[0]FK_ConState', ''),
+        eventCity: _.get(consigneeDetails, '[0]ConCity', ''),
+        eventZip: _.get(consigneeDetails, '[0]ConZip', ''),
+        eventCountryCode: _.get(consigneeDetails, '[0]FK_ConCountry', ''),
       };
+
       console.info(
         '🚀 ~ file: milestone-updates.js:99 ~ processShipmentHeader ~ payload:',
         payload
@@ -160,6 +169,9 @@ async function processShipmentHeader(newImage, oldImage) {
         '🚀 ~ file: milestone-updates.js:167 ~ processShipmentHeader ~ customerIds:',
         customerId
       );
+      if (!customerId) {
+        return;
+      }
       await saveToDynamoDB(payload, customerId, 'Pending', orderNo);
       console.info('The record is processed');
     } else {
@@ -510,45 +522,6 @@ async function processShipperAndConsignee(newImage, tableName) {
     throw error;
   }
 }
-
-// async function insertIntoStatusTable(newImage, tableName) {
-//   try {
-//     const orderNo =
-//       tableName === process.env.SHIPPER_TABLE ? newImage.FK_ShipOrderNo : newImage.FK_ConOrderNo;
-
-//     // Construct item to be inserted into status table
-//     const item = {
-//       FK_OrderNo: orderNo,
-//       ShipperStatus: tableName === process.env.SHIPPER_TABLE ? 'READY' : 'PENDING',
-//       ConsigneeStatus: tableName === process.env.CONSIGNEE_TABLE ? 'READY' : 'PENDING',
-//     };
-
-//     // Add additional attributes based on tableName
-//     if (tableName === process.env.SHIPPER_TABLE) {
-//       item.FK_ShipCountry = newImage.FK_ShipCountry;
-//       item.ShipZip = newImage.ShipZip;
-//       item.ShipCity = newImage.ShipCity;
-//       item.ShipState = newImage.ShipState;
-//     } else if (tableName === process.env.CONSIGNEE_TABLE) {
-//       item.FK_ConCountry = newImage.FK_ConCountry;
-//       item.ConZip = newImage.ConZip;
-//       item.ConCity = newImage.ConCity;
-//       item.ConState = newImage.ConState;
-//     }
-
-//     // Insert item into status table
-//     const params = {
-//       TableName: process.env.STATUS_TABLE,
-//       Item: item,
-//     };
-
-//     await dynamoDB.put(params).promise();
-//     console.info('Item inserted into status table:', item);
-//   } catch (error) {
-//     console.error('Error inserting into status table:', error);
-//     throw error;
-//   }
-// }
 
 async function insertIntoStatusTable(newImage, tableName) {
   try {
