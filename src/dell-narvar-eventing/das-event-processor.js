@@ -92,7 +92,9 @@ async function processShipmentHeader(newImage, oldImage) {
       // Check if shipper and consignee details are missing
       if (shipperDetails.length === 0 || consigneeDetails.length === 0) {
         // Insert order number and status columns into status table
-        await insertIntoStatusTable(newImage, process.env.SHIPMENT_HEADER_TABLE);
+        newImage.ShipperStatus = shipperDetails.length === 0 ? 'PENDING' : 'READY';
+        newImage.ConsigneeStatus = consigneeDetails.length === 0 ? 'PENDING' : 'READY';
+        await insertShipmentHeaderIntoStatusTable(newImage);
 
         // Stop processing further
         console.info('No shipper or consignee data found. Stopping further processing.');
@@ -497,96 +499,123 @@ async function queryConsigneeDetails(orderNo) {
   }
 }
 
+// async function processShipperAndConsignee(newImage, tableName) {
+//   try {
+//     let orderNo;
+//     if (tableName === process.env.SHIPPER_TABLE) {
+//       orderNo = newImage.FK_ShipOrderNo;
+//     } else {
+//       orderNo = newImage.FK_ConOrderNo;
+//     }
+//     // query status table if the order is present there or not
+//     const orderNoExists = await checkRecordExistsInStatusTable(orderNo);
+
+//     if (orderNoExists.length > 0) {
+//       // insert the orderNo in status table with the status columns (ShipperStatus, ConsigneeStatus)and also some attributes need based on tableName If shipper columns FK_ShipCountry, ShipZip, ShipCity, ShipState if consignee it should be Con prefix with same state, city and zip .
+//       await insertIntoStatusTable(newImage, tableName);
+//     }
+//     // Check if all statuses are READY and update main status column
+//     const allReady = await checkAllStatusReady(orderNo);
+//     if (allReady) {
+//       await updateStatus(process.env.STATUS_TABLE, orderNo, 'Status', 'READY');
+//     }
+//   } catch (error) {
+//     console.error('🚀 ~ file: das-event-processor.js:503 ~ error:', error);
+//     throw error;
+//   }
+// }
+
 async function processShipperAndConsignee(newImage, tableName) {
   try {
     let orderNo;
     if (tableName === process.env.SHIPPER_TABLE) {
       orderNo = newImage.FK_ShipOrderNo;
+      await updateShipperStatus(newImage);
     } else {
       orderNo = newImage.FK_ConOrderNo;
+      await updateConsigneeStatus(newImage);
     }
-    // query status table if the order is present there or not
+
+    // Query status table if the order is present there or not
     const orderNoExists = await checkRecordExistsInStatusTable(orderNo);
 
     if (orderNoExists.length > 0) {
-      // insert the orderNo in status table with the status columns (ShipperStatus, ConsigneeStatus)and also some attributes need based on tableName If shipper columns FK_ShipCountry, ShipZip, ShipCity, ShipState if consignee it should be Con prefix with same state, city and zip .
-      await insertIntoStatusTable(newImage, tableName);
-    }
-    // Check if all statuses are READY and update main status column
-    const allReady = await checkAllStatusReady(orderNo);
-    if (allReady) {
-      await updateStatus(process.env.STATUS_TABLE, orderNo, 'Status', 'READY');
+      // Check if all statuses are READY and update main status column
+      const allReady = await checkAllStatusReady(orderNo);
+      if (allReady) {
+        await updateStatus(process.env.STATUS_TABLE, orderNo, 'Status', 'READY');
+      }
     }
   } catch (error) {
-    console.error('🚀 ~ file: das-event-processor.js:503 ~ error:', error);
+    console.error('Error processing shipper and consignee:', error);
     throw error;
   }
 }
 
-async function insertIntoStatusTable(newImage, tableName) {
-  try {
-    let orderNo;
-    let scheduledDateTime;
-    let etaDateTime;
-    let id;
-    let housebill;
-    let billNo;
+// async function insertIntoStatusTable(newImage, tableName) {
+//   try {
+//     let orderNo;
+//     let scheduledDateTime;
+//     let etaDateTime;
+//     let id;
+//     let housebill;
+//     let billNo;
 
-    if (tableName === process.env.SHIPMENT_HEADER_TABLE) {
-      orderNo = newImage.PK_OrderNo;
-      scheduledDateTime = newImage.ScheduledDateTime;
-      etaDateTime = newImage.ETADateTime;
-      billNo = newImage.BillNo;
-      id = newImage.UUid;
-      housebill = newImage.Housebill;
-    } else {
-      orderNo =
-        tableName === process.env.SHIPPER_TABLE ? newImage.FK_ShipOrderNo : newImage.FK_ConOrderNo;
-    }
+//     if (tableName === process.env.SHIPMENT_HEADER_TABLE) {
+//       orderNo = newImage.PK_OrderNo;
+//       scheduledDateTime = newImage.ScheduledDateTime;
+//       etaDateTime = newImage.ETADateTime;
+//       billNo = newImage.BillNo;
+//       id = newImage.UUid;
+//       housebill = newImage.Housebill;
+//     } else {
+//       orderNo =
+//         tableName === process.env.SHIPPER_TABLE ? newImage.FK_ShipOrderNo : newImage.FK_ConOrderNo;
+//     }
 
-    // Construct item to be inserted into status table
-    const item = {
-      FK_OrderNo: orderNo,
-      ShipperStatus: tableName === process.env.SHIPPER_TABLE ? 'READY' : 'PENDING',
-      ConsigneeStatus: tableName === process.env.CONSIGNEE_TABLE ? 'READY' : 'PENDING',
-      ShimpmentHeaderStatus: tableName === process.env.SHIPMENT_HEADER_TABLE ? 'READY' : 'PENDING',
-      Status: 'PENDING',
-    };
+//     // Construct item to be inserted into status table
+//     const item = {
+//       FK_OrderNo: orderNo,
+//       ShipperStatus: tableName === process.env.SHIPPER_TABLE ? 'READY' : 'PENDING',
+//       ConsigneeStatus: tableName === process.env.CONSIGNEE_TABLE ? 'READY' : 'PENDING',
+//       ShimpmentHeaderStatus: tableName === process.env.SHIPMENT_HEADER_TABLE ? 'READY' : 'PENDING',
+//       Status: 'PENDING',
+//     };
 
-    // Add additional attributes based on tableName
-    if (tableName === process.env.SHIPPER_TABLE) {
-      item.FK_ShipCountry = newImage.FK_ShipCountry;
-      item.ShipZip = newImage.ShipZip;
-      item.ShipCity = newImage.ShipCity;
-      item.ShipState = newImage.ShipState;
-      item.ShipName = newImage.ShipName;
-    } else if (tableName === process.env.CONSIGNEE_TABLE) {
-      item.FK_ConCountry = newImage.FK_ConCountry;
-      item.ConZip = newImage.ConZip;
-      item.ConCity = newImage.ConCity;
-      item.ConState = newImage.ConState;
-    } else if (tableName === process.env.SHIPMENT_HEADER_TABLE) {
-      // For shipment header, insert additional attributes
-      item.ScheduledDateTime = scheduledDateTime;
-      item.ETADateTime = etaDateTime;
-      item.UUid = id;
-      item.Housebill = housebill;
-      item.BillNo = billNo;
-    }
+//     // Add additional attributes based on tableName
+//     if (tableName === process.env.SHIPPER_TABLE) {
+//       item.FK_ShipCountry = newImage.FK_ShipCountry;
+//       item.ShipZip = newImage.ShipZip;
+//       item.ShipCity = newImage.ShipCity;
+//       item.ShipState = newImage.ShipState;
+//       item.ShipName = newImage.ShipName;
+//     } else if (tableName === process.env.CONSIGNEE_TABLE) {
+//       item.FK_ConCountry = newImage.FK_ConCountry;
+//       item.ConZip = newImage.ConZip;
+//       item.ConCity = newImage.ConCity;
+//       item.ConState = newImage.ConState;
+//     } else if (tableName === process.env.SHIPMENT_HEADER_TABLE) {
+//       // For shipment header, insert additional attributes
+//       item.ScheduledDateTime = scheduledDateTime;
+//       item.ETADateTime = etaDateTime;
+//       item.UUid = id;
+//       item.Housebill = housebill;
+//       item.BillNo = billNo;
+//     }
 
-    // Insert item into status table
-    const params = {
-      TableName: process.env.STATUS_TABLE,
-      Item: item,
-    };
+//     // Insert item into status table
+//     const params = {
+//       TableName: process.env.STATUS_TABLE,
+//       Item: item,
+//     };
 
-    await dynamoDB.put(params).promise();
-    console.info('Item inserted into status table:', item);
-  } catch (error) {
-    console.error('Error inserting into status table:', error);
-    throw error;
-  }
-}
+//     await dynamoDB.put(params).promise();
+//     console.info('Item inserted into status table:', item);
+//   } catch (error) {
+//     console.error('Error inserting into status table:', error);
+//     throw error;
+//   }
+// }
 
 async function processStatusTable(newImage) {
   try {
@@ -680,6 +709,89 @@ async function processStatusTable(newImage) {
     console.info('The record is processed');
   } catch (error) {
     console.error('🚀 ~ file: das-event-processor.js:638 ~ processStatusTable ~ error:', error);
+    throw error;
+  }
+}
+
+async function insertShipmentHeaderIntoStatusTable(newImage) {
+  try {
+    const item = {
+      FK_OrderNo: newImage.PK_OrderNo,
+      ShipmentHeaderStatus: 'READY',
+      ShipperStatus: newImage.ShipperStatus,
+      ConsigneeStatus: newImage.ConsigneeStatus,
+      Status: 'PENDING',
+      ScheduledDateTime: newImage.ScheduledDateTime,
+      ETADateTime: newImage.ETADateTime,
+      UUid: newImage.UUid,
+      Housebill: newImage.Housebill,
+      BillNo: newImage.BillNo,
+    };
+
+    const params = {
+      TableName: process.env.STATUS_TABLE,
+      Item: item,
+    };
+
+    await dynamoDB.put(params).promise();
+    console.info('Shipment header inserted into status table:', item);
+  } catch (error) {
+    console.error('Error inserting shipment header into status table:', error);
+    throw error;
+  }
+}
+
+async function updateShipperStatus(newImage) {
+  try {
+    const params = {
+      TableName: process.env.STATUS_TABLE,
+      Key: {
+        FK_OrderNo: newImage.FK_ShipOrderNo,
+      },
+      UpdateExpression:
+        'SET ShipperStatus = :status, FK_ShipCountry = :country, ShipZip = :zip, ShipCity = :city, ShipState = :state, ShipName = :name',
+      ExpressionAttributeValues: {
+        ':status': 'READY',
+        ':country': newImage.FK_ShipCountry,
+        ':zip': newImage.ShipZip,
+        ':city': newImage.ShipCity,
+        ':state': newImage.ShipState,
+        ':name': newImage.ShipName,
+      },
+      ReturnValues: 'ALL_NEW',
+    };
+
+    const result = await dynamoDB.update(params).promise();
+    console.info('Shipper status updated in status table:', result.Attributes);
+  } catch (error) {
+    console.error('Error updating shipper status in status table:', error);
+    throw error;
+  }
+}
+
+async function updateConsigneeStatus(newImage) {
+  try {
+    const params = {
+      TableName: process.env.STATUS_TABLE,
+      Key: {
+        FK_OrderNo: newImage.FK_ConOrderNo,
+      },
+      UpdateExpression:
+        'SET ConsigneeStatus = :status, FK_ConCountry = :country, ConZip = :zip, ConCity = :city, ConState = :state',
+      ExpressionAttributeValues: {
+        ':status': 'READY',
+        ':country': newImage.FK_ConCountry,
+        ':zip': newImage.ConZip,
+        ':city': newImage.ConCity,
+        ':state': newImage.ConState,
+      },
+      ReturnValues: 'ALL_NEW',
+    };
+
+    const result = await dynamoDB.update(params).promise();
+    console.info('Consignee status updated in status table:', result.Attributes);
+  } catch (error) {
+    console.error('Error updating consignee status in status table:', error);
     throw error;
   }
 }
