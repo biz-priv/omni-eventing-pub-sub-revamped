@@ -249,6 +249,8 @@ async function processShipmentHeader(newImage, oldImage) {
         customerId
       );
       if (!customerId) {
+        console.info('Customer ID not found for billNo:', billNo);
+        await deleteDynamoRecord({ orderNo });
         return;
       }
       await saveToDynamoDB(payload, customerId, 'Pending', orderNo);
@@ -698,6 +700,7 @@ async function processStatusTable(newImage) {
     );
     if (!customerId) {
       console.info('Customer ID not found for billNo:', billNo);
+      await deleteDynamoRecord({ orderNo });
       return;
     }
     await saveToDynamoDB(payload, customerId, 'Pending', orderNo);
@@ -799,6 +802,21 @@ async function updateConsigneeStatus(newImage) {
     console.info('Consignee status updated in status table:', result.Attributes);
   } catch (error) {
     console.error('Error updating consignee status in status table:', error);
+    throw error;
+  }
+}
+
+async function deleteDynamoRecord({ orderNo }) {
+  const params = {
+    TableName: process.env.STATUS_TABLE,
+    Key: { FK_OrderNo: orderNo },
+  };
+  try {
+    const data3 = await dynamoDB.delete(params).promise();
+    console.info('🙂 -> file: test.js:176 -> deleteDynamoRecord -> data3:', data3);
+    return true;
+  } catch (error) {
+    console.error('Validation error:', error);
     throw error;
   }
 }
