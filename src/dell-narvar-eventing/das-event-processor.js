@@ -592,7 +592,7 @@ async function processShipperAndConsignee(newImage, tableName) {
     // Query status table if the order is present there or not
     const orderNoExists = await checkRecordExistsInStatusTable(orderNo);
 
-    if (orderNoExists.length > 0) {
+    if (orderNoExists.length > 0 && !(_.get(orderNoExists, '[0]Status') === 'SENT')) {
       if (tableName === process.env.SHIPPER_TABLE) {
         await updateShipperStatus(newImage);
       } else {
