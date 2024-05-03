@@ -62,6 +62,15 @@ async function processShipmentHeader(newImage, oldImage) {
     ) {
       const orderNo = _.get(newImage, 'PK_OrderNo');
       const scheduledDateTime = _.get(newImage, 'ScheduledDateTime', '');
+      const housebill = _.get(newImage, 'Housebill');
+      console.info(
+        '🚀 ~ file: das-event-processor.js:66 ~ processShipmentHeader ~ housebill:',
+        housebill
+      );
+      if (housebill === 0 || housebill === '0') {
+        console.info('skipping the process as the housebill number is invalid');
+        return;
+      }
       console.info(
         '🚀 ~ file: milestone-updates.js:90 ~ processShipmentHeader ~ scheduledDateTime:',
         scheduledDateTime
@@ -89,26 +98,81 @@ async function processShipmentHeader(newImage, oldImage) {
         '🚀 ~ file: das-event-processor.js:85 ~ processShipmentHeader ~ consigneeDetails:',
         consigneeDetails
       );
-      // Check if shipper and consignee details are missing
-      if (shipperDetails.length === 0 || consigneeDetails.length === 0) {
-        if (shipperDetails.length > 0) {
-          newImage.ShipName = _.get(shipperDetails, '[0].ShipName');
-          newImage.FK_ShipCountry = _.get(shipperDetails, '[0].FK_ShipCountry');
-          newImage.ShipCity = _.get(shipperDetails, '[0].ShipCity');
-          newImage.ShipZip = _.get(shipperDetails, '[0].ShipZip');
-          newImage.FK_ShipState = _.get(shipperDetails, '[0].FK_ShipState');
-        }
-        if (consigneeDetails.length > 0) {
-          newImage.FK_ConCountry = _.get(consigneeDetails, '[0].FK_ConCountry');
-          newImage.ConCity = _.get(consigneeDetails, '[0].ConCity');
-          newImage.ConZip = _.get(consigneeDetails, '[0].ConZip');
-          newImage.FK_ConState = _.get(consigneeDetails, '[0].FK_ConState');
-        }
-        // Insert order number and status columns into status table
-        newImage.ShipperStatus = shipperDetails.length === 0 ? 'PENDING' : 'READY';
-        newImage.ConsigneeStatus = consigneeDetails.length === 0 ? 'PENDING' : 'READY';
-        await insertShipmentHeaderIntoStatusTable(newImage);
 
+      if (
+        shipperDetails.length > 0 &&
+        shipperDetails.every((item) => {
+          const {
+            // eslint-disable-next-line camelcase
+            ShipName,
+            ShipZip,
+            ShipCity,
+            // eslint-disable-next-line camelcase
+            FK_ShipState,
+            // eslint-disable-next-line camelcase
+            FK_ShipCountry,
+          } = item;
+
+          return _.every(
+            [
+              ShipName,
+              ShipZip,
+              ShipCity,
+              // eslint-disable-next-line camelcase
+              FK_ShipCountry,
+              // eslint-disable-next-line camelcase
+              FK_ShipState,
+            ],
+            (value) => !_.isEmpty(value) && value !== 'NULL'
+          );
+        })
+      ) {
+        console.info('details are present.');
+        // Insert order number and status columns into status table
+        newImage.ShipperStatus = 'READY';
+      } else {
+        newImage.ShipName = _.get(shipperDetails, '[0].ShipName');
+        newImage.FK_ShipCountry = _.get(shipperDetails, '[0].FK_ShipCountry');
+        newImage.ShipCity = _.get(shipperDetails, '[0].ShipCity');
+        newImage.ShipZip = _.get(shipperDetails, '[0].ShipZip');
+        newImage.FK_ShipState = _.get(shipperDetails, '[0].FK_ShipState');
+        newImage.ShipperStatus = 'PENDING';
+      }
+      if (
+        consigneeDetails.length > 0 &&
+        consigneeDetails.every((item) => {
+          const {
+            ConZip,
+            ConCity,
+            // eslint-disable-next-line camelcase
+            FK_ConState,
+            // eslint-disable-next-line camelcase
+            FK_ConCountry,
+          } = item;
+
+          return _.every(
+            [
+              ConZip,
+              ConCity,
+              // eslint-disable-next-line camelcase
+              FK_ConState,
+              // eslint-disable-next-line camelcase
+              FK_ConCountry,
+            ],
+            (value) => !_.isEmpty(value) && value !== 'NULL'
+          );
+        })
+      ) {
+        newImage.ConsigneeStatus = 'READY';
+      } else {
+        newImage.ConsigneeStatus = 'PENDING';
+        newImage.FK_ConCountry = _.get(consigneeDetails, '[0].FK_ConCountry');
+        newImage.ConCity = _.get(consigneeDetails, '[0].ConCity');
+        newImage.ConZip = _.get(consigneeDetails, '[0].ConZip');
+        newImage.FK_ConState = _.get(consigneeDetails, '[0].FK_ConState');
+      }
+      if (newImage.ConsigneeStatus === 'PENDING' || newImage.ShipperStatus === 'PENDING') {
+        await insertShipmentHeaderIntoStatusTable(newImage);
         // Stop processing further
         console.info('No shipper or consignee data found. Stopping further processing.');
         return;
@@ -140,7 +204,7 @@ async function processShipmentHeader(newImage, oldImage) {
 
       const payload = {
         id: _.get(newImage, 'UUid'), // UUid from shipment header dynamodb table
-        trackingNo: _.get(newImage, 'Housebill'),
+        trackingNo: housebill,
         carrier: _.get(shipperDetails, '[0]ShipName', ''),
         statusCode: 'DAS',
         lastUpdateDate: scheduledDateTime,
@@ -185,6 +249,8 @@ async function processShipmentHeader(newImage, oldImage) {
         customerId
       );
       if (!customerId) {
+        console.info('Customer ID not found for billNo:', billNo);
+        await deleteDynamoRecord({ orderNo });
         return;
       }
       await saveToDynamoDB(payload, customerId, 'Pending', orderNo);
@@ -526,7 +592,7 @@ async function processShipperAndConsignee(newImage, tableName) {
     // Query status table if the order is present there or not
     const orderNoExists = await checkRecordExistsInStatusTable(orderNo);
 
-    if (orderNoExists.length > 0) {
+    if (orderNoExists.length > 0 && !(_.get(orderNoExists, '[0]Status') === 'SENT')) {
       if (tableName === process.env.SHIPPER_TABLE) {
         await updateShipperStatus(newImage);
       } else {
@@ -634,6 +700,7 @@ async function processStatusTable(newImage) {
     );
     if (!customerId) {
       console.info('Customer ID not found for billNo:', billNo);
+      await deleteDynamoRecord({ orderNo });
       return;
     }
     await saveToDynamoDB(payload, customerId, 'Pending', orderNo);
@@ -735,6 +802,21 @@ async function updateConsigneeStatus(newImage) {
     console.info('Consignee status updated in status table:', result.Attributes);
   } catch (error) {
     console.error('Error updating consignee status in status table:', error);
+    throw error;
+  }
+}
+
+async function deleteDynamoRecord({ orderNo }) {
+  const params = {
+    TableName: process.env.STATUS_TABLE,
+    Key: { FK_OrderNo: orderNo },
+  };
+  try {
+    const data3 = await dynamoDB.delete(params).promise();
+    console.info('🙂 -> file: test.js:176 -> deleteDynamoRecord -> data3:', data3);
+    return true;
+  } catch (error) {
+    console.error('Validation error:', error);
     throw error;
   }
 }
