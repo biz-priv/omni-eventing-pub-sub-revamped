@@ -584,25 +584,47 @@ async function queryConsigneeDetails(orderNo) {
 async function processShipperAndConsignee(newImage, tableName) {
   try {
     let orderNo;
+    let detailsToCheck;
+
     if (tableName === process.env.SHIPPER_TABLE) {
       orderNo = newImage.FK_ShipOrderNo;
+      detailsToCheck = newImage;
     } else {
       orderNo = newImage.FK_ConOrderNo;
+      detailsToCheck = newImage;
     }
 
     // Query status table if the order is present there or not
     const orderNoExists = await checkRecordExistsInStatusTable(orderNo);
 
-    if (orderNoExists.length > 0 && !(_.get(orderNoExists, '[0]Status') === 'SENT')) {
-      if (tableName === process.env.SHIPPER_TABLE) {
-        await updateShipperStatus(newImage);
+    if (orderNoExists.length > 0 && _.get(orderNoExists, '[0]Status') !== 'SENT') {
+      const requiredFields =
+        tableName === process.env.SHIPPER_TABLE
+          ? ['ShipName', 'ShipZip', 'ShipCity', 'FK_ShipState', 'FK_ShipCountry']
+          : ['ConZip', 'ConCity', 'FK_ConState', 'FK_ConCountry'];
+
+      if (
+        detailsToCheck &&
+        _.every(
+          requiredFields,
+          (field) => !_.isEmpty(detailsToCheck[field]) && detailsToCheck[field] !== 'NULL'
+        )
+      ) {
+        console.info('Details are present.');
+        if (tableName === process.env.SHIPPER_TABLE) {
+          await updateShipperStatus(newImage);
+        } else {
+          await updateConsigneeStatus(newImage);
+        }
+
+        // Check if all statuses are READY and update main status column
+        const allReady = await checkAllStatusReady(orderNo);
+        if (allReady) {
+          await updateStatus(process.env.STATUS_TABLE, orderNo, 'READY');
+        }
       } else {
-        await updateConsigneeStatus(newImage);
-      }
-      // Check if all statuses are READY and update main status column
-      const allReady = await checkAllStatusReady(orderNo);
-      if (allReady) {
-        await updateStatus(process.env.STATUS_TABLE, orderNo, 'READY');
+        console.info('Details are not valid or incomplete.');
+        return;
       }
     }
   } catch (error) {
@@ -717,16 +739,16 @@ async function processStatusTable(newImage) {
 async function insertShipmentHeaderIntoStatusTable(newImage) {
   try {
     const item = {
-      FK_OrderNo: newImage.PK_OrderNo,
+      FK_OrderNo: _.get(newImage, 'PK_OrderNo', ''),
       ShipmentHeaderStatus: 'READY',
-      ShipperStatus: newImage.ShipperStatus,
-      ConsigneeStatus: newImage.ConsigneeStatus,
+      ShipperStatus: _.get(newImage, 'ShipperStatus', 'PENDING'),
+      ConsigneeStatus: _.get(newImage, 'ConsigneeStatus', 'PENDING'),
       Status: 'PENDING',
-      ScheduledDateTime: newImage.ScheduledDateTime,
-      ETADateTime: newImage.ETADateTime,
-      UUid: newImage.UUid,
-      Housebill: newImage.Housebill,
-      BillNo: newImage.BillNo,
+      ScheduledDateTime: _.get(newImage, 'ScheduledDateTime', ''),
+      ETADateTime: _.get(newImage, 'ETADateTime', ''),
+      UUid: _.get(newImage, 'UUid', ''),
+      Housebill: _.get(newImage, 'Housebill', ''),
+      BillNo: _.get(newImage, 'BillNo', ''),
       FK_ShipCountry: _.get(newImage, 'FK_ShipCountry', ''),
       ShipZip: _.get(newImage, 'ShipZip', ''),
       ShipCity: _.get(newImage, 'ShipCity', ''),
