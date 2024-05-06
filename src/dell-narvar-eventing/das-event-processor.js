@@ -230,17 +230,6 @@ async function processShipmentHeader(newImage, oldImage) {
         '🚀 ~ file: milestone-updates.js:99 ~ processShipmentHeader ~ payload:',
         payload
       );
-      const validationResult = schema.validate(payload, { abortEarly: false });
-
-      if (_.get(validationResult, 'error')) {
-        // Joi validation failed, construct a more informative error message
-        const errorDetails = validationResult.error.details
-          .map((detail) => `"${detail.context.key}" ${detail.message}`)
-          .join('\n');
-        throw new Error(
-          `\nPayload validation error for Housebill: ${_.get(payload, 'trackingNo')} :\n${errorDetails}.`
-        );
-      }
       const billNo = Number(_.get(newImage, 'BillNo'));
       console.info('🚀 ~ file: milestone-updates.js:170 ~ processShipmentHeader ~ billNo:', billNo);
       const customerId = mapBillNoToCustomerId(billNo, process.env.STAGE);
@@ -253,6 +242,18 @@ async function processShipmentHeader(newImage, oldImage) {
         await deleteDynamoRecord({ orderNo });
         return;
       }
+      const validationResult = schema.validate(payload, { abortEarly: false });
+
+      if (_.get(validationResult, 'error')) {
+        // Joi validation failed, construct a more informative error message
+        const errorDetails = validationResult.error.details
+          .map((detail) => `"${detail.context.key}" ${detail.message}`)
+          .join('\n');
+        throw new Error(
+          `\nPayload validation error for Housebill: ${_.get(payload, 'trackingNo')} :\n${errorDetails}.`
+        );
+      }
+
       await saveToDynamoDB(payload, customerId, 'Pending', orderNo);
       await updateStatus(process.env.STATUS_TABLE, orderNo, 'SENT');
       console.info('The record is processed');
@@ -631,6 +632,18 @@ async function processStatusTable(newImage) {
       etaDateTime === 'NULL' || etaDateTime === '' || _.includes(etaDateTime, '1900')
         ? 'NA'
         : etaDateTime;
+    const billNo = Number(_.get(newImage, 'BillNo'));
+    console.info('🚀 ~ file: milestone-updates.js:170 ~ processShipmentHeader ~ billNo:', billNo);
+    const customerId = mapBillNoToCustomerId(billNo, process.env.STAGE);
+    console.info(
+      '🚀 ~ file: milestone-updates.js:167 ~ processShipmentHeader ~ customerIds:',
+      customerId
+    );
+    if (!customerId) {
+      console.info('Customer ID not found for billNo:', billNo);
+      await deleteDynamoRecord({ orderNo });
+      return;
+    }
     // Validate the payload using Joi
     const schema = Joi.object({
       id: Joi.string().required(),
@@ -690,18 +703,6 @@ async function processStatusTable(newImage) {
       throw new Error(
         `\nPayload validation error for Housebill: ${_.get(payload, 'trackingNo')} :\n${errorDetails}.`
       );
-    }
-    const billNo = Number(_.get(newImage, 'BillNo'));
-    console.info('🚀 ~ file: milestone-updates.js:170 ~ processShipmentHeader ~ billNo:', billNo);
-    const customerId = mapBillNoToCustomerId(billNo, process.env.STAGE);
-    console.info(
-      '🚀 ~ file: milestone-updates.js:167 ~ processShipmentHeader ~ customerIds:',
-      customerId
-    );
-    if (!customerId) {
-      console.info('Customer ID not found for billNo:', billNo);
-      await deleteDynamoRecord({ orderNo });
-      return;
     }
     await saveToDynamoDB(payload, customerId, 'Pending', orderNo);
     await updateStatus(process.env.STATUS_TABLE, orderNo, 'SENT');
