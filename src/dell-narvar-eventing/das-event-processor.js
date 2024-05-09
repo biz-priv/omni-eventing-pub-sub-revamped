@@ -130,12 +130,12 @@ async function processShipmentHeader(newImage, oldImage) {
         console.info('details are present.');
         // Insert order number and status columns into status table
         newImage.ShipperStatus = 'READY';
-      } else {
         newImage.ShipName = _.get(shipperDetails, '[0].ShipName');
         newImage.FK_ShipCountry = _.get(shipperDetails, '[0].FK_ShipCountry');
         newImage.ShipCity = _.get(shipperDetails, '[0].ShipCity');
         newImage.ShipZip = _.get(shipperDetails, '[0].ShipZip');
         newImage.FK_ShipState = _.get(shipperDetails, '[0].FK_ShipState');
+      } else {
         newImage.ShipperStatus = 'PENDING';
       }
       if (
@@ -164,12 +164,12 @@ async function processShipmentHeader(newImage, oldImage) {
         })
       ) {
         newImage.ConsigneeStatus = 'READY';
-      } else {
-        newImage.ConsigneeStatus = 'PENDING';
         newImage.FK_ConCountry = _.get(consigneeDetails, '[0].FK_ConCountry');
         newImage.ConCity = _.get(consigneeDetails, '[0].ConCity');
         newImage.ConZip = _.get(consigneeDetails, '[0].ConZip');
         newImage.FK_ConState = _.get(consigneeDetails, '[0].FK_ConState');
+      } else {
+        newImage.ConsigneeStatus = 'PENDING';
       }
       if (newImage.ConsigneeStatus === 'PENDING' || newImage.ShipperStatus === 'PENDING') {
         await insertShipmentHeaderIntoStatusTable(newImage);
