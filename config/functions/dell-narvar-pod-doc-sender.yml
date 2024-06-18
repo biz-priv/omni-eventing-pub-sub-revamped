@@ -2,6 +2,8 @@
 function:
   name: dell-narvar-pod-doc-sender-${self:provider.stage}
   handler: src/dell-narvar-pod-doc/pod-doc-sender.handler
+  tags:
+    Name: pod-doc-sender
   memorySize: 2048
   timeout: 900
   layers:

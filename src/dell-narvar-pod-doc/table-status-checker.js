@@ -1,3 +1,10 @@
+/*
+* File: src\dell-narvar-pod-doc\table-status-checker.js
+* Project: Omni-eventing-pub-sub-revamped
+* Author: Bizcloud Experts
+* Date: 2024-03-14
+* Confidential and Proprietary
+*/
 'use strict';
 
 const { get, pickBy } = require('lodash');

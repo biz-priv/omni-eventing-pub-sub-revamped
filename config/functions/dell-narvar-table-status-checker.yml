@@ -4,6 +4,8 @@ function:
   handler: src/dell-narvar-pod-doc/table-status-checker.handler
   memorySize: 2048
   timeout: 900
+  tags:
+    Name: table-status-checker
   layers:
     - !Ref NodeModulesLambdaLayer
   package:
