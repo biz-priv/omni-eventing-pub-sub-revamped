@@ -7,6 +7,10 @@ provider:
   versionFunctions: false
   runtime: nodejs20.x
   role: ${ssm:/omni-dw/${self:provider.stage}/lambda/role}
+  tags:
+    Application: Omni eventing pub sub revamped
+    CreateBy: BizCloudExperts
+    Environment: ${self:provider.stage}  
   vpc:
     securityGroupIds:
       - ${ssm:/omni-dw/${self:provider.stage}/lambda/sgId}

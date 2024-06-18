@@ -2,6 +2,8 @@
 function:
   name: dell-narvar-pod-doc-shipment-header-stream-processor-${self:provider.stage}
   handler: src/dell-narvar-pod-doc/shipment-header-stream-processor.handler
+  tags:
+    Name: shipment-header-stream-processor
   memorySize: 2048
   timeout: 900
   layers:

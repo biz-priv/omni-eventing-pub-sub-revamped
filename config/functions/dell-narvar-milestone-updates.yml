@@ -2,6 +2,8 @@
 function:
   name: dell-narvar-milestone-updates-${self:provider.stage}
   handler: src/dell-narvar-eventing/milestone-updates.handler
+  tags:
+    Name: milestone-updates
   runtime: nodejs18.x
   memorySize: 2048
   timeout: 900

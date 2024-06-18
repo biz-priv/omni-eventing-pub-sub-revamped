@@ -4,6 +4,8 @@ function:
   handler: src/dell-narvar-pod-doc/shipment-milestone-stream-processor.handler
   memorySize: 2048
   timeout: 900
+  tags:
+    Name: shipment-milestone-stream-processor
   layers:
     - !Ref NodeModulesLambdaLayer
   package:

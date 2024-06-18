@@ -2,6 +2,8 @@
 function:
   name: dell-narvar-event-publish-${self:provider.stage}
   handler: src/dell-narvar-eventing/event-publish.handler
+  tags:
+    Name: event-publish
   runtime: nodejs16.x
   memorySize: 2048
   timeout: 900
