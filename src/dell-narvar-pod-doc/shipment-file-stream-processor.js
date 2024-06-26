@@ -1,3 +1,10 @@
+/*
+* File: src\dell-narvar-pod-doc\shipment-file-stream-processor.js
+* Project: Omni-eventing-pub-sub-revamped
+* Author: Bizcloud Experts
+* Date: 2024-03-14
+* Confidential and Proprietary
+*/
 'use strict';
 const { get } = require('lodash');
 const { publishToSNS, tableStatuses, STATUSES, getCstTimestamp } = require('./helper');
