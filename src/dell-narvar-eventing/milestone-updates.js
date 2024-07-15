@@ -1,10 +1,10 @@
 /*
-* File: src\dell-narvar-eventing\milestone-updates.js
-* Project: Omni-eventing-pub-sub-revamped
-* Author: Bizcloud Experts
-* Date: 2024-05-09
-* Confidential and Proprietary
-*/
+ * File: src\dell-narvar-eventing\milestone-updates.js
+ * Project: Omni-eventing-pub-sub-revamped
+ * Author: Bizcloud Experts
+ * Date: 2024-05-09
+ * Confidential and Proprietary
+ */
 'use strict';
 
 const AWS = require('aws-sdk');
@@ -99,11 +99,13 @@ async function processShipmentMilestone(newImage) {
       // Update a column in the same table to set ProcessState as 'Pending'
       await updateProcessState(newImage, 'Pending');
       const payload = await processDynamoDBRecord(newImage);
-
-      // Get all customer IDs based on the tracking number
-      const trackingNo = _.get(payload, 'trackingNo');
-      const customerIds = await getCustomer(trackingNo);
-      await saveToDynamoDB(payload, customerIds.join(), 'Pending', orderNo);
+      const customerId = _.get(payload, 'customerId', '');
+      if (customerId === '') {
+        console.info('Skipping execution as there is no customerId');
+        return;
+      }
+      _.unset(payload, 'customerId');
+      await saveToDynamoDB(payload, customerId, 'Pending', orderNo);
       // Update a column in the same table to set ProcessState as 'Processed'
       await updateProcessState(newImage, 'Processed');
       console.info('The record is processed');
@@ -182,7 +184,15 @@ async function processDynamoDBRecord(dynamodbRecord) {
       '🚀 ~ file: milestone-updates.js:289 ~ processDynamoDBRecord ~ headerDetails:',
       headerDetails
     );
-    const { ETADateTime, Housebill } = headerDetails;
+    const { ETADateTime, Housebill, BillNo } = headerDetails;
+    console.info('🚀 ~ file: milestone-updates.js:186 ~ processDynamoDBRecord ~ BillNo:', BillNo);
+    const customerId = mapBillNoToCustomerId(BillNo, process.env.STAGE);
+
+    if (!customerId) {
+      console.info('Customer ID not found for BillNo:', BillNo);
+      return null;
+    }
+
     const estimatedDeliveryDate =
       ETADateTime === 'NULL' || ETADateTime === '' || _.includes(ETADateTime, '1900')
         ? 'NA'
@@ -249,6 +259,7 @@ async function processDynamoDBRecord(dynamodbRecord) {
       destState: _.get(consigneeDetails, 'FK_ConState', ''),
       destZip: _.get(consigneeDetails, 'ConZip', ''),
       destCountryCode: _.get(consigneeDetails, 'FK_ConCountry', ''),
+      customerId,
     };
 
     if (stopsequence === 1) {
@@ -340,30 +351,6 @@ async function queryHeaderDetails(OrderNo) {
   }
 }
 
-async function getCustomer(housebill) {
-  const params = {
-    TableName: process.env.CUSTOMER_ENTITLEMENT_TABLE,
-    IndexName: process.env.ENTITLEMENT_HOUSEBILL_INDEX,
-    KeyConditionExpression: 'HouseBillNumber = :Housebill',
-    ExpressionAttributeValues: {
-      ':Housebill': housebill,
-    },
-  };
-
-  try {
-    const data = await dynamoDB.query(params).promise();
-    if (_.get(data, 'Items', []).length > 0) {
-      // Extract an array of customer IDs from the DynamoDB objects
-      const customerIds = data.Items.map((item) => item.CustomerID);
-      return customerIds;
-    }
-    throw new Error(`No CustomerID found for this ${housebill} in entitlements table`);
-  } catch (error) {
-    console.error('Validation error:', error);
-    throw error;
-  }
-}
-
 async function saveToDynamoDB(payload, customerId, deliveryStatus, orderNo) {
   const params = {
     TableName: process.env.SHIPMENT_EVENT_STATUS_TABLE,
@@ -382,4 +369,182 @@ async function saveToDynamoDB(payload, customerId, deliveryStatus, orderNo) {
   } catch (error) {
     console.error('Error saving to DynamoDB:', error);
   }
+}
+
+// Define your data as an array of objects
+const data = {
+  dev: [
+    { customerId: 10465268, billNo: 53370 },
+    { customerId: 10467696, billNo: 53385 },
+    { customerId: 10489251, billNo: 53376 },
+    { customerId: 10501014, billNo: 53345 },
+    { customerId: 10493743, billNo: 53525 },
+    { customerId: 10508494, billNo: 53355 },
+    { customerId: 10516460, billNo: 53517 },
+    { customerId: 10528691, billNo: 53367 },
+    { customerId: 10490821, billNo: 53353 },
+    { customerId: 10514167, billNo: 53518 },
+    { customerId: 10495727, billNo: 53551 },
+    { customerId: 10510168, billNo: 53529 },
+    { customerId: 10477361, billNo: 53526 },
+    { customerId: 10486375, billNo: 53527 },
+    { customerId: 10512447, billNo: 53523 },
+    { customerId: 10472786, billNo: 53342 },
+    { customerId: 10513992, billNo: 53510 },
+    { customerId: 10489488, billNo: 53373 },
+    { customerId: 10483834, billNo: 53341 },
+    { customerId: 10508470, billNo: 53346 },
+    { customerId: 10498369, billNo: 53389 },
+    { customerId: 10480788, billNo: 53524 },
+    { customerId: 10505959, billNo: 53350 },
+    { customerId: 10537523, billNo: 54302 },
+    { customerId: 10511581, billNo: 53386 },
+    { customerId: 10488327, billNo: 53344 },
+    { customerId: 10488510, billNo: 53516 },
+    { customerId: 10515995, billNo: 53354 },
+    { customerId: 10478419, billNo: 53536 },
+    { customerId: 10467083, billNo: 53347 },
+    { customerId: 10484491, billNo: 53374 },
+    { customerId: 10508344, billNo: 53379 },
+    { customerId: 10492416, billNo: 53384 },
+    { customerId: 10483049, billNo: 53395 },
+    { customerId: 10513583, billNo: 53362 },
+    { customerId: 10502508, billNo: 53356 },
+    { customerId: 10498497, billNo: 53357 },
+    { customerId: 10514179, billNo: 53343 },
+    { customerId: 10478676, billNo: 53392 },
+    { customerId: 10467792, billNo: 53360 },
+    { customerId: 10498854, billNo: 53364 },
+    { customerId: 10521382, billNo: 53393 },
+    { customerId: 10489429, billNo: 53514 },
+    { customerId: 10491834, billNo: 53383 },
+    { customerId: 10526650, billNo: 53359 },
+    { customerId: 10498380, billNo: 53378 },
+    { customerId: 10524886, billNo: 53522 },
+    { customerId: 10500974, billNo: 53371 },
+    { customerId: 10469089, billNo: 53352 },
+    { customerId: 10501000, billNo: 53368 },
+    { customerId: 10473932, billNo: 53512 },
+    { customerId: 10471467, billNo: 53387 },
+    { customerId: 10467672, billNo: 53511 },
+    { customerId: 10496344, billNo: 53349 },
+    { customerId: 10494629, billNo: 53361 },
+    { customerId: 10477581, billNo: 53508 },
+    { customerId: 10483790, billNo: 53372 },
+    { customerId: 10454715, billNo: 11935 },
+    { customerId: 10472932, billNo: 53513 },
+    { customerId: 10475501, billNo: 53377 },
+    { customerId: 10468791, billNo: 53515 },
+    { customerId: 10526135, billNo: 53365 },
+    { customerId: 10497338, billNo: 53351 },
+    { customerId: 10479472, billNo: 53394 },
+    { customerId: 10509038, billNo: 53519 },
+    { customerId: 10515481, billNo: 53375 },
+    { customerId: 10460067, billNo: 53366 },
+    { customerId: 10502342, billNo: 53391 },
+    { customerId: 10522143, billNo: 53348 },
+    { customerId: 10475517, billNo: 53358 },
+    { customerId: 10511440, billNo: 53388 },
+    { customerId: 10483662, billNo: 53369 },
+    { customerId: 10528776, billNo: 53521 },
+    { customerId: 10476923, billNo: 53509 },
+    { customerId: 10516026, billNo: 53390 },
+    { customerId: 10539222, billNo: 54304 },
+    { customerId: 10536728, billNo: 54303 },
+    { customerId: 10503834, billNo: 53363 },
+  ],
+  prod: [
+    { customerId: 10583560, billNo: 53368 },
+    { customerId: 10585356, billNo: 53356 },
+    { customerId: 10582182, billNo: 53391 },
+    { customerId: 10582083, billNo: 53343 },
+    { customerId: 10589900, billNo: 53517 },
+    { customerId: 10587112, billNo: 53510 },
+    { customerId: 10029364, billNo: 11935 },
+    { customerId: 10582086, billNo: 53364 },
+    { customerId: 10585023, billNo: 53348 },
+    { customerId: 10584378, billNo: 53351 },
+    { customerId: 10588333, billNo: 53377 },
+    { customerId: 10585388, billNo: 53378 },
+    { customerId: 10582214, billNo: 53393 },
+    { customerId: 10582507, billNo: 53374 },
+    { customerId: 10585671, billNo: 53350 },
+    { customerId: 10592397, billNo: 53508 },
+    { customerId: 10589932, billNo: 53512 },
+    { customerId: 10582051, billNo: 53366 },
+    { customerId: 10586729, billNo: 53395 },
+    { customerId: 10585575, billNo: 53344 },
+    { customerId: 10587176, billNo: 53521 },
+    { customerId: 10584442, billNo: 53341 },
+    { customerId: 10584705, billNo: 53357 },
+    { customerId: 10589957, billNo: 53353 },
+    { customerId: 10589703, billNo: 53527 },
+    { customerId: 10584143, billNo: 53362 },
+    { customerId: 10582179, billNo: 53376 },
+    { customerId: 10582571, billNo: 53347 },
+    { customerId: 10585838, billNo: 53369 },
+    { customerId: 10588591, billNo: 53525 },
+    { customerId: 10590126, billNo: 53519 },
+    { customerId: 10587172, billNo: 53513 },
+    { customerId: 10584513, billNo: 53352 },
+    { customerId: 10583872, billNo: 53384 },
+    { customerId: 10584410, billNo: 53383 },
+    { customerId: 10584673, billNo: 53389 },
+    { customerId: 10589925, billNo: 53361 },
+    { customerId: 10587056, billNo: 53360 },
+    { customerId: 10586674, billNo: 53342 },
+    { customerId: 10580886, billNo: 53345 },
+    { customerId: 10585206, billNo: 53522 },
+    { customerId: 10604886, billNo: 54304 },
+    { customerId: 10587120, billNo: 53388 },
+    { customerId: 10589077, billNo: 53514 },
+    { customerId: 10612211, billNo: 54302 },
+    { customerId: 10588724, billNo: 53370 },
+    { customerId: 10590519, billNo: 53515 },
+    { customerId: 10592595, billNo: 53536 },
+    { customerId: 10585943, billNo: 53365 },
+    { customerId: 10588376, billNo: 53511 },
+    { customerId: 10585934, billNo: 53372 },
+    { customerId: 10588344, billNo: 53529 },
+    { customerId: 10590583, billNo: 53518 },
+    { customerId: 10608120, billNo: 54303 },
+    { customerId: 10586960, billNo: 53394 },
+    { customerId: 10582603, billNo: 53387 },
+    { customerId: 10585870, billNo: 53371 },
+    { customerId: 10589391, billNo: 53551 },
+    { customerId: 10588628, billNo: 53392 },
+    { customerId: 10587088, billNo: 53373 },
+    { customerId: 10588179, billNo: 53367 },
+    { customerId: 10593140, billNo: 53524 },
+    { customerId: 10584120, billNo: 53379 },
+    { customerId: 10583515, billNo: 53354 },
+    { customerId: 10584218, billNo: 53390 },
+    { customerId: 10587163, billNo: 53509 },
+    { customerId: 10581789, billNo: 53358 },
+    { customerId: 10584282, billNo: 53359 },
+    { customerId: 10584152, billNo: 53349 },
+    { customerId: 10584250, billNo: 53363 },
+    { customerId: 10586992, billNo: 53385 },
+    { customerId: 10585902, billNo: 53355 },
+    { customerId: 10596785, billNo: 53526 },
+    { customerId: 10580950, billNo: 53346 },
+    { customerId: 10588639, billNo: 53523 },
+    { customerId: 10581821, billNo: 53386 },
+    { customerId: 10582137, billNo: 53375 },
+    { customerId: 10589054, billNo: 53516 },
+  ],
+};
+
+// Create a mapping function
+function mapBillNoToCustomerId(billNo, stage) {
+  // Get the data based on the provided stage
+  const stageData = _.get(data, stage, []);
+
+  // Convert the stage data into a Map where billNo is the key and customerId is the value
+  const mapping = new Map(
+    stageData.map((entry) => [_.get(entry, 'billNo'), _.get(entry, 'customerId')])
+  );
+
+  // Retrieve the customerId corresponding to the billNo from the mapping
+  return mapping.get(billNo);
 }

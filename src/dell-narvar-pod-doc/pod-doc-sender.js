@@ -1,10 +1,10 @@
 /*
-* File: src\dell-narvar-pod-doc\pod-doc-sender.js
-* Project: Omni-eventing-pub-sub-revamped
-* Author: Bizcloud Experts
-* Date: 2024-03-14
-* Confidential and Proprietary
-*/
+ * File: src\dell-narvar-pod-doc\pod-doc-sender.js
+ * Project: Omni-eventing-pub-sub-revamped
+ * Author: Bizcloud Experts
+ * Date: 2024-03-14
+ * Confidential and Proprietary
+ */
 'use strict';
 const { get } = require('lodash');
 const { publishToSNS, STATUSES, getCstTimestamp } = require('./helper');
