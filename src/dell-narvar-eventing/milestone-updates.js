@@ -186,7 +186,7 @@ async function processDynamoDBRecord(dynamodbRecord) {
     );
     const { ETADateTime, Housebill, BillNo } = headerDetails;
     console.info('🚀 ~ file: milestone-updates.js:186 ~ processDynamoDBRecord ~ BillNo:', BillNo);
-    const customerId = mapBillNoToCustomerId(BillNo, process.env.STAGE);
+    const customerId = mapBillNoToCustomerId(Number(BillNo), process.env.STAGE);
 
     if (!customerId) {
       console.info('Customer ID not found for BillNo:', BillNo);
@@ -239,6 +239,7 @@ async function processDynamoDBRecord(dynamodbRecord) {
       eventState: Joi.string().required(),
       eventZip: Joi.string().required(),
       eventCountryCode: Joi.string().required(),
+      customerId: Joi.number().required(),
     });
 
     const payload = {
