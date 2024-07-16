@@ -98,13 +98,25 @@ async function processShipmentMilestone(newImage) {
     try {
       // Update a column in the same table to set ProcessState as 'Pending'
       await updateProcessState(newImage, 'Pending');
-      const payload = await processDynamoDBRecord(newImage);
-      const customerId = _.get(payload, 'customerId', '');
-      if (customerId === '') {
-        console.info('Skipping execution as there is no customerId');
+      const headerDetails = await queryHeaderDetails(orderNo);
+      console.info(
+        '🚀 ~ file: milestone-updates.js:102 ~ processShipmentMilestone ~ headerDetails:',
+        headerDetails
+      );
+      const { ETADateTime, Housebill, BillNo } = headerDetails;
+      console.info('🚀 ~ file: milestone-updates.js:186 ~ processDynamoDBRecord ~ BillNo:', BillNo);
+      const customerId = mapBillNoToCustomerId(Number(BillNo), process.env.STAGE);
+      console.info(
+        '🚀 ~ file: milestone-updates.js:106 ~ processShipmentMilestone ~ customerId:',
+        customerId
+      );
+
+      if (!customerId) {
+        console.info('Customer ID not found for BillNo:', BillNo);
         return;
       }
-      _.unset(payload, 'customerId');
+      const payload = await processDynamoDBRecord(newImage, ETADateTime, Housebill);
+
       await saveToDynamoDB(payload, customerId, 'Pending', orderNo);
       // Update a column in the same table to set ProcessState as 'Processed'
       await updateProcessState(newImage, 'Processed');
@@ -170,7 +182,7 @@ async function publishToSNS(message, subject) {
   }
 }
 
-async function processDynamoDBRecord(dynamodbRecord) {
+async function processDynamoDBRecord(dynamodbRecord, ETADateTime, Housebill) {
   try {
     const {
       FK_OrderNo: OrderNo,
@@ -178,20 +190,6 @@ async function processDynamoDBRecord(dynamodbRecord) {
       EventDateTime,
       UUid: id,
     } = dynamodbRecord;
-
-    const headerDetails = await queryHeaderDetails(OrderNo);
-    console.info(
-      '🚀 ~ file: milestone-updates.js:289 ~ processDynamoDBRecord ~ headerDetails:',
-      headerDetails
-    );
-    const { ETADateTime, Housebill, BillNo } = headerDetails;
-    console.info('🚀 ~ file: milestone-updates.js:186 ~ processDynamoDBRecord ~ BillNo:', BillNo);
-    const customerId = mapBillNoToCustomerId(Number(BillNo), process.env.STAGE);
-
-    if (!customerId) {
-      console.info('Customer ID not found for BillNo:', BillNo);
-      return null;
-    }
 
     const estimatedDeliveryDate =
       ETADateTime === 'NULL' || ETADateTime === '' || _.includes(ETADateTime, '1900')
@@ -239,7 +237,6 @@ async function processDynamoDBRecord(dynamodbRecord) {
       eventState: Joi.string().required(),
       eventZip: Joi.string().required(),
       eventCountryCode: Joi.string().required(),
-      customerId: Joi.number().required(),
     });
 
     const payload = {
@@ -260,7 +257,6 @@ async function processDynamoDBRecord(dynamodbRecord) {
       destState: _.get(consigneeDetails, 'FK_ConState', ''),
       destZip: _.get(consigneeDetails, 'ConZip', ''),
       destCountryCode: _.get(consigneeDetails, 'FK_ConCountry', ''),
-      customerId,
     };
 
     if (stopsequence === 1) {
