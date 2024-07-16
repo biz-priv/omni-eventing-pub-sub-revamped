@@ -10,7 +10,7 @@ provider:
   tags:
     Application: Omni eventing pub sub revamped
     CreateBy: BizCloudExperts
-    Environment: ${self:provider.stage}  
+    Environment: ${self:provider.stage}
   vpc:
     securityGroupIds:
       - ${ssm:/omni-dw/${self:provider.stage}/lambda/sgId}
