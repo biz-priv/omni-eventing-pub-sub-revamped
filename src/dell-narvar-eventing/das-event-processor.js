@@ -1,3 +1,10 @@
+/*
+ * File: src\dell-narvar-eventing\das-event-processor.js
+ * Project: Omni-eventing-pub-sub-revamped
+ * Author: Bizcloud Experts
+ * Date: 2024-05-09
+ * Confidential and Proprietary
+ */
 'use strict';
 
 const AWS = require('aws-sdk');
